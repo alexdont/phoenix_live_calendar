@@ -4,6 +4,19 @@
 
 ### Added
 
+- **`on_external_drop`: accept items dragged in from outside the calendar.**
+  Mark any element `data-lc-external-id="<host id>"` and `draggable="true"`;
+  dropped on a time slot of the day/N-day/week/resource views the callback gets
+  `%{external_id, date, time, datetime, resource_id}`, dropped on a month day
+  it gets `time: nil` — the host creates or reschedules its own row
+  (timeboxing a to-do list onto the grid). The new `ExternalDrop` hook sits on
+  the view container (only when the callback is set, so it composes with
+  `enable_hooks`), uses native HTML drag and drop, accepts only drags that
+  started on a marked element, finds the slot under the pointer even through
+  an event block, and marks it with the existing `.cal-drop-target` style.
+  Layer 1 over layer 0: no new render path, and without JS there is nothing to
+  drop. Touch devices are not covered (HTML drag and drop is mouse/pen).
+
 - **`display: :background` in the day, N-day and week views** — the
   FullCalendar background-event model, finishing what `Event.display` already
   declared. A background event is a full-width fill behind the day column's

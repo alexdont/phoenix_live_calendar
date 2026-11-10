@@ -1026,6 +1026,72 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
     }
   end
 
+  describe "on_external_drop" do
+    test "a drop on a time slot reports the host id, day and time" do
+      pid = self()
+      socket = mounted() |> update(%{on_external_drop: cb(pid, :xd)})
+
+      CalendarComponent.handle_event(
+        "lc_external_drop",
+        %{
+          "external_id" => "task-1",
+          "date" => "2026-06-15",
+          "time" => "14:30:00",
+          "resource_id" => nil
+        },
+        socket
+      )
+
+      assert_received {:xd,
+                       %{
+                         external_id: "task-1",
+                         date: ~D[2026-06-15],
+                         time: ~T[14:30:00],
+                         datetime: ~N[2026-06-15 14:30:00],
+                         resource_id: nil
+                       }}
+    end
+
+    test "a drop on a day without slots (month) has no time" do
+      pid = self()
+      socket = mounted() |> update(%{on_external_drop: cb(pid, :xd)})
+
+      CalendarComponent.handle_event(
+        "lc_external_drop",
+        %{"external_id" => "task-1", "date" => "2026-06-15", "time" => nil},
+        socket
+      )
+
+      assert_received {:xd, %{date: ~D[2026-06-15], time: nil, datetime: nil}}
+    end
+
+    test "bad params are logged and dropped, never a crash" do
+      pid = self()
+      socket = mounted() |> update(%{on_external_drop: cb(pid, :xd)})
+
+      for params <- [
+            %{"external_id" => "", "date" => "2026-06-15"},
+            %{"external_id" => "x", "date" => "not-a-date"},
+            %{"external_id" => "x", "date" => "2026-06-15", "time" => "25:99"},
+            %{}
+          ] do
+        {_, log} =
+          with_log(fn -> CalendarComponent.handle_event("lc_external_drop", params, socket) end)
+
+        assert log =~ "Invalid params in lc_external_drop"
+      end
+
+      refute_received {:xd, _}
+    end
+
+    test "the drop hook is rendered only when the callback is set" do
+      on = render_html(:week, %{on_external_drop: fn _ -> :ok end})
+      assert on =~ ~s(phx-hook="ExternalDrop")
+      assert on =~ ~s(id="cal-drop")
+      refute render_html(:week) =~ "ExternalDrop"
+    end
+  end
+
   describe "scroll_to" do
     test "reaches the day, N-day and week grids" do
       for view <- [:day, {:n_day, 3}, :week] do

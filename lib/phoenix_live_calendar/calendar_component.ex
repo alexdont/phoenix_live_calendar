@@ -376,11 +376,18 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
            the month view's unclipped cells buy nothing if this scroll
            container swallows the tooltip anyway. The trade (documented on
            the attr) is no scroll fallback and no corner clip for that view. --%>
-      <div class={[
-        "cal-view-container flex-1",
-        view_overflow_class(assigns),
-        if(view_first?(assigns), do: "rounded-[inherit]", else: "rounded-b-[inherit]")
-      ]}>
+      <%!-- on_external_drop (layer 1): the ExternalDrop hook accepts items
+           dragged in from outside onto this view's slots/day cells. Its own
+           element, so it composes with the root's enable_hooks container. --%>
+      <div
+        id={if(assigns[:on_external_drop], do: "#{@id}-drop")}
+        phx-hook={if(assigns[:on_external_drop], do: "ExternalDrop")}
+        class={[
+          "cal-view-container flex-1",
+          view_overflow_class(assigns),
+          if(view_first?(assigns), do: "rounded-[inherit]", else: "rounded-b-[inherit]")
+        ]}
+      >
         <.render_view
           view={@internal_view}
           date={@internal_date}
@@ -933,6 +940,29 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
     {:noreply, socket}
   end
 
+  # An item dragged in from outside the calendar (ExternalDrop hook): a host
+  # id, the day, and the slot's time (nil on a day without slots).
+  def handle_event("lc_external_drop", params, socket) when is_map(params) do
+    with id when is_binary(id) and id != "" <- params["external_id"],
+         {:ok, date} <- Date.from_iso8601(to_string(params["date"])),
+         {:ok, time} <- parse_optional_time(params["time"]) do
+      notify_callback(socket, :on_external_drop, %{
+        external_id: id,
+        date: date,
+        time: time,
+        datetime: time && NaiveDateTime.new!(date, time),
+        resource_id: params["resource_id"]
+      })
+    else
+      _ ->
+        Logger.warning(
+          "[PhoenixLiveCalendar] Invalid params in lc_external_drop: #{inspect(params)}"
+        )
+    end
+
+    {:noreply, socket}
+  end
+
   def handle_event("lc_event_resize", params, socket) when is_map(params) do
     data = %{
       event_id: params["event_id"],
@@ -1199,6 +1229,11 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   end
 
   defp safe_parse_time(_), do: nil
+
+  defp parse_optional_time(nil), do: {:ok, nil}
+  defp parse_optional_time(""), do: {:ok, nil}
+  defp parse_optional_time(value) when is_binary(value), do: Time.from_iso8601(value)
+  defp parse_optional_time(_), do: :error
 
   defp notify_callback(socket, callback_key, data) do
     case Map.get(socket.assigns, callback_key) do

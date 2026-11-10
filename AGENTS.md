@@ -15,7 +15,7 @@ This is the load-bearing design rule (shared with its sibling `phoenix_live_gant
 
 ```
 Layer 0: Pure Elixir/HEEx — server-rendered grids, phx-click interactions (zero JS)
-Layer 1: Optional JS hooks — drag-to-select, drag-to-move, resize, ResizeObserver, marker ticker, scroll-to-time
+Layer 1: Optional JS hooks — drag-to-select, drag-to-move, resize, ResizeObserver, marker ticker, scroll-to-time, external drop
 Layer 2: Optional PubSub — pass a topic for real-time multi-user updates
 Layer 3: Optional booking constraints — availability, slots, buffers, validation
 Layer 4: Optional Ecto persistence — behaviour + default Ecto implementation
@@ -118,7 +118,7 @@ mix format && mix compile --warnings-as-errors && mix credo --strict && mix test
 
 - ~40 Elixir source files, 1 Mix task, 2 asset files (JS + CSS), ~37 test files
 - Layer 0 (Pure Elixir views): Complete — all 8 views
-- Layer 1 (JS hooks): Complete — 10 hooks (incl. SyncAnimations, ScrollToTime)
+- Layer 1 (JS hooks): Complete — 11 hooks (incl. SyncAnimations, ScrollToTime, ExternalDrop)
 - 0.3 wave (2026-07): Theme color tokens, Heatmap (+palettes/:dot),
   Widgets (next_events / week_strip / activity_grid / activity_month /
   mini_timeline), Layers + legend, slot forwarding through the component,
@@ -273,7 +273,7 @@ phoenix_live_calendar/
   priv/
     static/
       assets/
-        phoenix_live_calendar.js                # 10 JS hooks (see JS Hooks section)
+        phoenix_live_calendar.js                # 11 JS hooks (see JS Hooks section)
         phoenix_live_calendar.css               # Optional CSS: urgency animations, drag states, prefers-reduced-motion
 
   test/                                 # ~37 test files (see mix test for the live count)
@@ -587,6 +587,7 @@ tradeoff and is what keeps user navigation from being discarded.)
 | `lc_range_select` | `%{date, start_time, end_time}` | JS: drag-to-select |
 | `lc_event_drop` | `%{event_id, new_date, new_time, resource_id}` | JS: drag-to-move |
 | `lc_event_resize` | `%{event_id, edge, new_time}` | JS: resize |
+| `lc_external_drop` | `%{external_id, date, time\|nil, resource_id}` | JS: ExternalDrop (item dragged in from outside) |
 | `lc_container_resized` | `%{width: integer}` | JS: ResponsiveContainer |
 | `lc_layer_toggle` | `%{layer: id-string}` | Legend chip click |
 
@@ -601,6 +602,7 @@ tradeoff and is what keeps user navigation from being discarded.)
 | `on_range_select` | `%{date, start_time, end_time}` |
 | `on_event_drop` | `%{event_id, new_date, new_time, resource_id}` |
 | `on_event_resize` | `%{event_id, edge, new_time}` |
+| `on_external_drop` | `%{external_id, date, time, datetime, resource_id}` (`time`/`datetime` nil on a slot-less day) |
 | `on_container_resized` | `%{width}` |
 | `on_view_change` | `%{view, date}` |
 | `on_date_range_change` | `%{start, end, view, date}` |
@@ -622,6 +624,7 @@ Packaged as `window.PhoenixLiveCalendarHooks`
 | `ResponsiveContainer` | ResizeObserver, 150ms debounce |
 | `TouchHandler` | Long-press for mobile (500ms) |
 | `PhoenixLiveCalendarContainer` | Composite — initializes TimeRangeSelect, EventDrag, EventResize, ResponsiveContainer, TouchHandler |
+| `ExternalDrop` | On `.cal-view-container` when `on_external_drop` is set (its own element, so it composes with `enable_hooks`). Native HTML DnD: a document `dragstart` listener tags drags starting on `[data-lc-external-id]` with the `application/x-lc-external-id` type; only those are accepted. Target = the element under the pointer carrying `phx-value-date`+`phx-value-time` (looks through event blocks via `elementsFromPoint`), else a slot-less `[data-date]` (month cell → `time: null`). `.cal-drop-target` while hovering. No touch (HTML DnD) |
 | `ScrollToTime` | On the server-positioned `.cal-scroll-anchor` (`scroll_to`): scrolls the grid's nearest scrolling ancestor so the anchor is at its top. Measures no layout to decide the target. Once per anchor; the anchor id carries the visible dates (`<id>-scroll-<first date>-<count>`), so a view change/navigation re-scrolls and a plain re-render (ticking `now`) never fights the user. Mounted hidden → scrolls on first size (ResizeObserver) |
 | `SyncAnimations` | Re-anchors CSS animations to one document-timeline origin on mount + subtree changes (MutationObserver/ResizeObserver + per-cell background offsets) so per-cell animations stay in phase across LiveView patches |
 

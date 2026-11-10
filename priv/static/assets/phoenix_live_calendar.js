@@ -625,6 +625,116 @@
   };
 
   // ============================================================
+  // ExternalDrop — accept items dragged in from OUTSIDE the calendar
+  // ============================================================
+  // Native HTML drag and drop. A host marks any element outside the calendar
+  // with `data-lc-external-id="<its id>"` (and `draggable="true"`); this hook,
+  // on the view container when `on_external_drop` is set, accepts it on:
+  //
+  //   * a time slot — any element carrying `phx-value-date` + `phx-value-time`
+  //     (week/day/N-day/resource), found UNDER the pointer even when an event
+  //     block is on top of it → `%{external_id, date, time, resource_id}`;
+  //   * a day without slots (a month cell, `data-date`) → `time: null`.
+  //
+  // Only drags that started on a `data-lc-external-id` element are accepted
+  // (its id travels as the `application/x-lc-external-id` type), so dropping
+  // a file or a link does nothing. Without JS there is nothing to drag, and
+  // the host's own form sets the time: the no-JS render is unchanged.
+  var EXTERNAL_TYPE = "application/x-lc-external-id";
+
+  // One document-level listener tags every drag that starts on a marked
+  // element, whichever calendar it ends up over.
+  if (!window.__lcExternalDragTagging) {
+    window.__lcExternalDragTagging = true;
+    document.addEventListener("dragstart", function (e) {
+      var source = e.target && e.target.closest && e.target.closest("[data-lc-external-id]");
+      if (!source || !e.dataTransfer) return;
+      e.dataTransfer.setData(EXTERNAL_TYPE, source.getAttribute("data-lc-external-id"));
+      e.dataTransfer.effectAllowed = "copyMove";
+    });
+  }
+
+  window.PhoenixLiveCalendarHooks.ExternalDrop = {
+    mounted() {
+      this._target = null;
+
+      this._onDragOver = (e) => {
+        if (!this._accepts(e)) return;
+        var target = this._dropTarget(e);
+        if (!target) return this._mark(null);
+        e.preventDefault(); // allow the drop
+        e.dataTransfer.dropEffect = "move";
+        this._mark(target.el);
+      };
+
+      this._onDragLeave = (e) => {
+        if (!this.el.contains(e.relatedTarget)) this._mark(null);
+      };
+
+      this._onDrop = (e) => {
+        if (!this._accepts(e)) return;
+        var target = this._dropTarget(e);
+        this._mark(null);
+        if (!target) return;
+        e.preventDefault();
+        var id = e.dataTransfer.getData(EXTERNAL_TYPE);
+        if (!id) return;
+        this.pushEventTo(this.el, "lc_external_drop", {
+          external_id: id,
+          date: target.date,
+          time: target.time,
+          resource_id: target.resourceId,
+        });
+      };
+
+      this.el.addEventListener("dragover", this._onDragOver);
+      this.el.addEventListener("dragleave", this._onDragLeave);
+      this.el.addEventListener("drop", this._onDrop);
+    },
+
+    destroyed() {
+      this.el.removeEventListener("dragover", this._onDragOver);
+      this.el.removeEventListener("dragleave", this._onDragLeave);
+      this.el.removeEventListener("drop", this._onDrop);
+    },
+
+    _accepts(e) {
+      var types = e.dataTransfer && e.dataTransfer.types;
+      return !!types && Array.prototype.indexOf.call(types, EXTERNAL_TYPE) !== -1;
+    },
+
+    // The slot under the pointer (looking through event blocks), else a
+    // slot-less day cell; null over anything else (headers, the gutter).
+    _dropTarget(e) {
+      var stack = document.elementsFromPoint(e.clientX, e.clientY);
+      for (var i = 0; i < stack.length; i++) {
+        var node = stack[i];
+        if (!this.el.contains(node)) continue;
+        if (node.hasAttribute("phx-value-time") && node.hasAttribute("phx-value-date")) {
+          return {
+            el: node,
+            date: node.getAttribute("phx-value-date"),
+            time: node.getAttribute("phx-value-time"),
+            resourceId: node.getAttribute("phx-value-resource-id"),
+          };
+        }
+      }
+      var day = e.target.closest && e.target.closest("[data-date]");
+      if (day && this.el.contains(day) && !day.querySelector("[phx-value-time]")) {
+        return { el: day, date: day.getAttribute("data-date"), time: null, resourceId: null };
+      }
+      return null;
+    },
+
+    _mark(el) {
+      if (this._target === el) return;
+      if (this._target) this._target.classList.remove("cal-drop-target");
+      this._target = el;
+      if (el) el.classList.add("cal-drop-target");
+    },
+  };
+
+  // ============================================================
   // ScrollToTime — open a time grid scrolled to a time (scroll_to)
   // ============================================================
   // Sits on the server-rendered `.cal-scroll-anchor`, whose `top` the server

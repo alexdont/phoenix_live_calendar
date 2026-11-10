@@ -66,7 +66,7 @@ Add to your `assets/css/app.css` so Tailwind scans the component templates:
 
 ### Optional: JS hooks
 
-For drag interactions and `scroll_to`, add to `assets/js/app.js`:
+For drag interactions, `scroll_to` and `on_external_drop`, add to `assets/js/app.js`:
 
 ```javascript
 import "../../deps/phoenix_live_calendar/priv/static/assets/phoenix_live_calendar.js"
@@ -195,6 +195,7 @@ end
 | `on_view_change` | `%{view, date}` | View switched |
 | `on_date_range_change` | `%{start, end, view, date}` | Visible range changed |
 | `on_layers_change` | `%{visible: ids, hidden: ids}` | A legend chip was toggled |
+| `on_external_drop` | `%{external_id, date, time, datetime, resource_id}` | An element from OUTSIDE the calendar, marked `data-lc-external-id="…"` + `draggable="true"`, was dropped on a time slot (`time` set) or a month day (`time: nil`). Needs the JS hooks (`ExternalDrop`, native HTML drag and drop — not touch) |
 
 ## Heatmaps
 
