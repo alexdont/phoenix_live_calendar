@@ -5,6 +5,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGridTest do
   import Phoenix.Component, only: [sigil_H: 2]
   import PhoenixLiveCalendar.Views.WeekGrid
 
+  alias PhoenixLiveCalendar.Components.TimeGutter
   alias PhoenixLiveCalendar.Event
 
   defp render(content), do: rendered_to_string(content)
@@ -766,20 +767,20 @@ defmodule PhoenixLiveCalendar.Views.WeekGridTest do
 
   describe "hour lines" do
     test "the line ending an hour is clear, the half hour's faint and dashed" do
-      assert PhoenixLiveCalendar.Components.TimeGutter.slot_line_class(~T[13:30:00], 30) =~
+      assert TimeGutter.slot_line_class(~T[13:30:00], 30) =~
                "cal-hour-line border-b border-base-content/15"
 
-      assert PhoenixLiveCalendar.Components.TimeGutter.slot_line_class(~T[13:00:00], 30) =~
+      assert TimeGutter.slot_line_class(~T[13:00:00], 30) =~
                "cal-half-line border-b border-dashed"
 
       # Hour-long slots: every line is an hour line; 15-minute ones every fourth.
-      assert PhoenixLiveCalendar.Components.TimeGutter.slot_line_class(~T[13:00:00], 60) =~
+      assert TimeGutter.slot_line_class(~T[13:00:00], 60) =~
                "cal-hour-line"
 
-      assert PhoenixLiveCalendar.Components.TimeGutter.slot_line_class(~T[13:30:00], 15) =~
+      assert TimeGutter.slot_line_class(~T[13:30:00], 15) =~
                "cal-half-line"
 
-      assert PhoenixLiveCalendar.Components.TimeGutter.slot_line_class(~T[13:45:00], 15) =~
+      assert TimeGutter.slot_line_class(~T[13:45:00], 15) =~
                "cal-hour-line"
     end
 
