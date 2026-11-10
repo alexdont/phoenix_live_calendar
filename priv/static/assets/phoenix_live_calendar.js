@@ -625,6 +625,67 @@
   };
 
   // ============================================================
+  // ScrollToTime — open a time grid scrolled to a time (scroll_to)
+  // ============================================================
+  // Sits on the server-rendered `.cal-scroll-anchor`, whose `top` the server
+  // already computed (scroll_to - scroll_lead, on the now indicator's
+  // scale). It measures no layout to decide WHERE to go: it only brings the
+  // anchor to the top of whichever ancestor scrolls the grid (the view
+  // container, or the week body when that one is bounded). Runs once per
+  // anchor; the anchor's id carries the visible dates, so a view switch or
+  // navigation mounts a new one, and a plain re-render never fights the
+  // viewer's own scrolling. A calendar mounted hidden (display: none, e.g. a
+  // collapsed panel) scrolls the first time it gets a size.
+  window.PhoenixLiveCalendarHooks.ScrollToTime = {
+    mounted() {
+      this._root = this.el.closest(".cal-container") || this.el.parentElement;
+      if (this._scroll()) return;
+
+      if (typeof ResizeObserver === "undefined") return;
+      this._observer = new ResizeObserver(() => {
+        if (this._scroll()) this._stop();
+      });
+      this._observer.observe(this._root);
+    },
+
+    destroyed() {
+      this._stop();
+    },
+
+    _stop() {
+      if (this._observer) this._observer.disconnect();
+      this._observer = null;
+    },
+
+    // true once there was a scroll box to settle (or nothing needed it)
+    _scroll() {
+      if (this.el.offsetParent === null) return false; // hidden: wait
+      var box = this._scrollBox();
+      if (!box) return true; // the whole grid fits: nothing to do
+      var delta =
+        this.el.getBoundingClientRect().top - box.getBoundingClientRect().top;
+      box.scrollTop += delta;
+      return true;
+    },
+
+    _scrollBox() {
+      var node = this.el.parentElement;
+      while (node) {
+        var overflow = window.getComputedStyle(node).overflowY;
+        if (
+          (overflow === "auto" || overflow === "scroll") &&
+          node.scrollHeight > node.clientHeight
+        ) {
+          return node;
+        }
+        if (node === this._root) return null;
+        node = node.parentElement;
+      }
+      return null;
+    },
+  };
+
+  // ============================================================
   // PhoenixLiveCalendarContainer — composite hook for the main container
   // ============================================================
   window.PhoenixLiveCalendarHooks.PhoenixLiveCalendarContainer = {

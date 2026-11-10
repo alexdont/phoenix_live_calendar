@@ -1,5 +1,21 @@
 # Changelog
 
+## Unreleased
+
+### Added
+
+- **`scroll_to` and `scroll_lead` on the day, N-day and week views.** A 24-hour
+  grid used to open at midnight. `scroll_to: :now` (or a `Time`) opens it
+  scrolled so that time sits `scroll_lead` minutes (default 60) below the top,
+  on mount and again whenever the visible dates change — a view switch or a
+  prev/next — but never on a plain re-render, so a ticking `now` does not
+  undo the viewer's own scrolling (FullCalendar's `scrollTime` /
+  `scrollTimeReset`). Phoenix-first: the server renders a `.cal-scroll-anchor`
+  at the target on the now indicator's own percentage scale, and the new
+  `ScrollToTime` hook only scrolls the grid's scroll box to it. Without the
+  hooks the grid starts at `min_time`, exactly as before. A calendar mounted
+  hidden scrolls the first time it gets a size.
+
 ## 0.5.1
 
 ### Fixed

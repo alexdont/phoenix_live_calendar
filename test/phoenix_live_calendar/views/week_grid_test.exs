@@ -511,4 +511,89 @@ defmodule PhoenixLiveCalendar.Views.WeekGridTest do
       assert html =~ ~r/height: 0\.3\d+%/
     end
   end
+
+  describe "scroll_to" do
+    @dates [~D[2026-04-01], ~D[2026-04-02], ~D[2026-04-03]]
+
+    test "no anchor by default: the grid starts at min_time, with or without JS" do
+      assigns = %{dates: @dates}
+      html = render(~H"<.week_grid dates={@dates} />")
+      refute html =~ "cal-scroll-anchor"
+      refute html =~ "ScrollToTime"
+    end
+
+    test "a Time renders a hooked anchor at that time minus the one-hour lead" do
+      assigns = %{dates: @dates}
+      html = render(~H"<.week_grid id=\"cal\" dates={@dates} scroll_to={~T[12:00:00]} />")
+
+      assert html =~ ~s(phx-hook="ScrollToTime")
+      assert html =~ ~s(id="cal-scroll-2026-04-01-3")
+      # 11:00 of a 00:00-23:59:59 grid, on the now indicator's percentage scale
+      assert html =~ "top: 45.83%"
+    end
+
+    test "scroll_lead sets the context above the time; 0 lands on it exactly" do
+      assigns = %{dates: @dates}
+      html = render(~H"<.week_grid dates={@dates} scroll_to={~T[12:00:00]} scroll_lead={0} />")
+      assert html =~ "top: 50.0%"
+    end
+
+    test ":now follows the injected now" do
+      assigns = %{dates: @dates}
+
+      html =
+        render(
+          ~H"<.week_grid dates={@dates} now={~T[18:00:00]} scroll_to={:now} scroll_lead={0} />"
+        )
+
+      assert html =~ "top: 75.0%"
+    end
+
+    test "the lead never reaches above min_time, and a time past the window clamps" do
+      assigns = %{dates: @dates}
+
+      early =
+        render(~H"<.week_grid
+  dates={@dates}
+  min_time={~T[06:00:00]}
+  max_time={~T[22:00:00]}
+  scroll_to={~T[06:30:00]}
+/>")
+
+      late =
+        render(~H"<.week_grid
+  dates={@dates}
+  min_time={~T[06:00:00]}
+  max_time={~T[22:00:00]}
+  scroll_to={~T[23:30:00]}
+  scroll_lead={0}
+/>")
+
+      assert early =~ ~s(class="cal-scroll-anchor) and early =~ "top: 0.0%"
+      assert late =~ "top: 100.0%"
+    end
+
+    test "the anchor id follows the visible dates, so a view change scrolls again" do
+      assigns = %{one: [~D[2026-04-01]], three: @dates, next: [~D[2026-04-04]]}
+
+      one = render(~H"<.week_grid id=\"c\" dates={@one} scroll_to={~T[09:00:00]} />")
+      three = render(~H"<.week_grid id=\"c\" dates={@three} scroll_to={~T[09:00:00]} />")
+      next = render(~H"<.week_grid id=\"c\" dates={@next} scroll_to={~T[09:00:00]} />")
+
+      ids =
+        for html <- [one, three, next],
+            do: Regex.run(~r/id="(c-scroll-[^"]+)"/, html, capture: :all_but_first)
+
+      assert ids == [
+               ["c-scroll-2026-04-01-1"],
+               ["c-scroll-2026-04-01-3"],
+               ["c-scroll-2026-04-04-1"]
+             ]
+    end
+
+    test "empty dates render no anchor" do
+      assigns = %{dates: []}
+      refute render(~H"<.week_grid dates={@dates} scroll_to={:now} />") =~ "cal-scroll-anchor"
+    end
+  end
 end

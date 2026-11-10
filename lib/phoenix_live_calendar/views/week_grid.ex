@@ -75,6 +75,16 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
     doc:
       "Current wall-clock time for the now indicator (default: `Time.utc_now()`). Pass the viewer's local time when your events/`today` are in the viewer's frame."
 
+  attr :scroll_to, :any,
+    default: nil,
+    doc:
+      "`:now`, a `Time`, or nil. With the `ScrollToTime` hook registered, the time grid opens scrolled to this time (minus `scroll_lead`) on mount and whenever the visible dates change. Without JS the grid starts at `min_time`, as before."
+
+  attr :scroll_lead, :integer,
+    default: 60,
+    doc:
+      "Minutes of context kept above `scroll_to`: the grid opens at `scroll_to - scroll_lead`, clamped to `min_time`."
+
   attr :business_hours, :list, default: []
   attr :day_markers, :list, default: []
 
@@ -139,6 +149,8 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
       |> assign(:col_count, col_count)
       |> assign(:markers_by_date, markers_by_date)
       |> assign(:rem_per_minute, rem_per_minute)
+      |> assign(:scroll_top, scroll_top(assigns, now))
+      |> assign(:scroll_anchor_id, scroll_anchor_id(assigns))
       |> assign(
         :now_in_window?,
         Time.compare(now, assigns.min_time) != :lt and
@@ -271,6 +283,23 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
           class="flex-1 grid relative"
           style={"grid-template-columns: repeat(#{@col_count}, minmax(0, 1fr))"}
         >
+          <%!-- Scroll anchor (layer 1, progressive): positioned server-side at
+               scroll_to - scroll_lead, exactly as the now indicator is, so the
+               ScrollToTime hook only scrolls the grid's scroll box to it and
+               measures nothing. Its id carries the visible dates, so a new
+               view or a navigation mounts a fresh anchor (and scrolls again),
+               while a re-render of the same dates (a ticking `now`) leaves
+               the viewer's own scrolling alone. No JS: the grid starts at
+               min_time, unchanged. --%>
+          <div
+            :if={@scroll_top}
+            id={@scroll_anchor_id}
+            class="cal-scroll-anchor absolute start-0 top-0 h-px w-px pointer-events-none"
+            style={"top: #{@scroll_top}%"}
+            phx-hook="ScrollToTime"
+            aria-hidden="true"
+          >
+          </div>
           <%!-- Day columns --%>
           <div
             :for={date <- @dates}
@@ -350,6 +379,37 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
   end
 
   # -- Private helpers --
+
+  # Where the grid should open, as a percentage of its height (the now
+  # indicator's own scale), or nil for "don't scroll".
+  defp scroll_top(%{scroll_to: nil}, _now), do: nil
+  defp scroll_top(%{dates: []}, _now), do: nil
+
+  defp scroll_top(assigns, now) do
+    target =
+      case assigns.scroll_to do
+        :now -> now
+        %Time{} = time -> time
+        _ -> nil
+      end
+
+    if target do
+      {seconds, _} = Time.to_seconds_after_midnight(target)
+      {min_seconds, _} = Time.to_seconds_after_midnight(assigns.min_time)
+      lead = max(assigns.scroll_lead || 0, 0) * 60
+
+      (seconds - lead)
+      |> max(min_seconds)
+      |> Time.from_seconds_after_midnight()
+      |> TimeSlots.time_to_percentage(min_time: assigns.min_time, max_time: assigns.max_time)
+    end
+  end
+
+  defp scroll_anchor_id(%{dates: []}), do: nil
+
+  defp scroll_anchor_id(assigns) do
+    "#{assigns[:id] || "lc"}-scroll-#{Date.to_iso8601(hd(assigns.dates))}-#{length(assigns.dates)}"
+  end
 
   attr :date, Date, required: true
   attr :today, :any, default: nil, doc: "Date | nil (server today) | :none (no today highlight)"

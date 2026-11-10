@@ -35,4 +35,13 @@ defmodule PhoenixLiveCalendar.Views.NDayViewTest do
       assert html =~ "Meeting"
     end
   end
+
+  describe "scroll_to" do
+    test "passes through to the time grid" do
+      assigns = %{date: ~D[2026-04-01]}
+      html = render(~H"<.n_day_view id=\"n\" date={@date} days={3} scroll_to={~T[08:00:00]} />")
+      assert html =~ ~s(id="n-scroll-2026-04-01-3")
+      assert html =~ ~s(phx-hook="ScrollToTime")
+    end
+  end
 end

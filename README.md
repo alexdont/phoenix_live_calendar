@@ -66,7 +66,7 @@ Add to your `assets/css/app.css` so Tailwind scans the component templates:
 
 ### Optional: JS hooks
 
-For drag interactions, add to `assets/js/app.js`:
+For drag interactions and `scroll_to`, add to `assets/js/app.js`:
 
 ```javascript
 import "../../deps/phoenix_live_calendar/priv/static/assets/phoenix_live_calendar.js"
@@ -182,6 +182,8 @@ end
 | `sticky_resource_column` | boolean | `true` | Timeline: pin the resource label column during horizontal scroll |
 | `fit_to_events` | boolean | `false` | Timeline: size the visible window to the rendered events (hour-rounded) instead of `min_time`/`max_time` |
 | `show_now_indicator` | boolean | `true` | Current-time line in day/week/timeline views when showing today |
+| `scroll_to` | `:now`/Time/nil | `nil` | Day/N-day/week: open the time grid scrolled to this time, on mount and whenever the visible dates change. Needs the JS hooks (`ScrollToTime`); without them the grid starts at `min_time` |
+| `scroll_lead` | integer | `60` | Minutes of context kept above `scroll_to` (clamped to `min_time`) |
 
 ## Callbacks
 

@@ -9,13 +9,13 @@ PhoenixLiveCalendar is a standalone Hex package with no framework dependencies b
 
 ### Guiding philosophy: Phoenix-first — looks right without JavaScript
 
-This is the load-bearing design rule (shared with its sibling `phoenix_live_gantt`): **everything renders correctly server-side; JS is progressive enhancement, never a layout dependency.** Every view is computed in Elixir and emitted as HEEx + Tailwind — no JS-measured layout, no client-built DOM. The only two hooks in the render path (`MarkerTicker`, `PopoverPause`) degrade gracefully: with JS off a day's first marker still shows (you lose only the cycling), and the popover is `:if={@show && @event}` server state (the hook just pauses tickers). All primary interactions — navigate, view-switch, date/event click, popover open/close — are server-driven `phx-click`s over the base LiveView socket. The drag/resize/touch/responsive hooks add interaction but the calendar must look and read correctly without them. **When adding anything, the no-hooks render must still look good** — if a feature only works with a hook, give it a sensible static fallback (as MarkerTicker does).
+This is the load-bearing design rule (shared with its sibling `phoenix_live_gantt`): **everything renders correctly server-side; JS is progressive enhancement, never a layout dependency.** Every view is computed in Elixir and emitted as HEEx + Tailwind — no JS-measured layout, no client-built DOM. The only three hooks in the render path (`MarkerTicker`, `PopoverPause`, `ScrollToTime`) degrade gracefully: with JS off a day's first marker still shows (you lose only the cycling), the popover is `:if={@show && @event}` server state (the hook just pauses tickers), and a `scroll_to` grid simply starts at `min_time` (the anchor's position is server-computed; the hook only scrolls to it). All primary interactions — navigate, view-switch, date/event click, popover open/close — are server-driven `phx-click`s over the base LiveView socket. The drag/resize/touch/responsive hooks add interaction but the calendar must look and read correctly without them. **When adding anything, the no-hooks render must still look good** — if a feature only works with a hook, give it a sensible static fallback (as MarkerTicker does).
 
 ### Architecture: Layered
 
 ```
 Layer 0: Pure Elixir/HEEx — server-rendered grids, phx-click interactions (zero JS)
-Layer 1: Optional JS hooks — drag-to-select, drag-to-move, resize, ResizeObserver, marker ticker
+Layer 1: Optional JS hooks — drag-to-select, drag-to-move, resize, ResizeObserver, marker ticker, scroll-to-time
 Layer 2: Optional PubSub — pass a topic for real-time multi-user updates
 Layer 3: Optional booking constraints — availability, slots, buffers, validation
 Layer 4: Optional Ecto persistence — behaviour + default Ecto implementation
@@ -118,7 +118,7 @@ mix format && mix compile --warnings-as-errors && mix credo --strict && mix test
 
 - ~40 Elixir source files, 1 Mix task, 2 asset files (JS + CSS), ~37 test files
 - Layer 0 (Pure Elixir views): Complete — all 8 views
-- Layer 1 (JS hooks): Complete — 9 hooks (incl. SyncAnimations)
+- Layer 1 (JS hooks): Complete — 10 hooks (incl. SyncAnimations, ScrollToTime)
 - 0.3 wave (2026-07): Theme color tokens, Heatmap (+palettes/:dot),
   Widgets (next_events / week_strip / activity_grid / activity_month /
   mini_timeline), Layers + legend, slot forwarding through the component,
@@ -273,7 +273,7 @@ phoenix_live_calendar/
   priv/
     static/
       assets/
-        phoenix_live_calendar.js                # 9 JS hooks (see JS Hooks section)
+        phoenix_live_calendar.js                # 10 JS hooks (see JS Hooks section)
         phoenix_live_calendar.css               # Optional CSS: urgency animations, drag states, prefers-reduced-motion
 
   test/                                 # ~37 test files (see mix test for the live count)
@@ -518,6 +518,8 @@ Fixed overlay modal with semi-transparent backdrop (`bg-base-content/30`).
 | `marker_ticker_interval` | `3000` | Milliseconds between marker transitions |
 | `enable_hooks` | `false` | Attach JS hooks to container for drag interactions |
 | `now` | `Time.utc_now()` | Wall-clock for the now indicators (pass viewer-local with a tz-correct `today`) |
+| `scroll_to` | `nil` | `:now` / `Time` — day/N-day/week open scrolled to it (minus `scroll_lead`) via `ScrollToTime`; JS off → starts at `min_time` |
+| `scroll_lead` | `60` | Minutes of context above `scroll_to`, clamped to `min_time` |
 | `events_mode` | `:full` | `:window` trims events to the visible range (pair with `on_date_range_change`) |
 | `layers` / `show_legend` | `[]` / `true` | Layer structs -> legend toggle chips; hidden layers filtered server-side |
 | `header_layout` | `:auto` | Toolbar collapses to a start row when both wings are empty; `:centered`/`:start` force |
@@ -611,6 +613,7 @@ Packaged as `window.PhoenixLiveCalendarHooks`
 | `ResponsiveContainer` | ResizeObserver, 150ms debounce |
 | `TouchHandler` | Long-press for mobile (500ms) |
 | `PhoenixLiveCalendarContainer` | Composite — initializes TimeRangeSelect, EventDrag, EventResize, ResponsiveContainer, TouchHandler |
+| `ScrollToTime` | On the server-positioned `.cal-scroll-anchor` (`scroll_to`): scrolls the grid's nearest scrolling ancestor so the anchor is at its top. Measures no layout to decide the target. Once per anchor; the anchor id carries the visible dates (`<id>-scroll-<first date>-<count>`), so a view change/navigation re-scrolls and a plain re-render (ticking `now`) never fights the user. Mounted hidden → scrolls on first size (ResizeObserver) |
 | `SyncAnimations` | Re-anchors CSS animations to one document-timeline origin on mount + subtree changes (MutationObserver/ResizeObserver + per-cell background offsets) so per-cell animations stay in phase across LiveView patches |
 
 

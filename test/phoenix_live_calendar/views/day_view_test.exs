@@ -34,4 +34,16 @@ defmodule PhoenixLiveCalendar.Views.DayViewTest do
       assert html =~ "grid-template-columns: repeat(1, minmax(0, 1fr))"
     end
   end
+
+  describe "scroll_to" do
+    test "passes through to the time grid" do
+      assigns = %{date: ~D[2026-04-01]}
+
+      html =
+        render(~H"<.day_view id=\"d\" date={@date} scroll_to={~T[08:00:00]} scroll_lead={0} />")
+
+      assert html =~ ~s(id="d-scroll-2026-04-01-1")
+      assert html =~ "top: 33.33%"
+    end
+  end
 end

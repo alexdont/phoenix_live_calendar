@@ -1026,6 +1026,25 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
     }
   end
 
+  describe "scroll_to" do
+    test "reaches the day, N-day and week grids" do
+      for view <- [:day, {:n_day, 3}, :week] do
+        html = render_html(view, %{scroll_to: ~T[09:00:00]})
+        assert html =~ ~s(phx-hook="ScrollToTime"), "no anchor in #{inspect(view)}"
+      end
+    end
+
+    test "is off unless asked for, and has no meaning in the month view" do
+      refute render_html(:week) =~ "cal-scroll-anchor"
+      refute render_html(:month, %{scroll_to: ~T[09:00:00]}) =~ "cal-scroll-anchor"
+    end
+
+    test "scroll_lead is forwarded" do
+      html = render_html(:day, %{scroll_to: ~T[12:00:00], scroll_lead: 0})
+      assert html =~ "top: 50.0%"
+    end
+  end
+
   defp render_html(view, extra \\ %{}) do
     base = %{
       id: "cal",
