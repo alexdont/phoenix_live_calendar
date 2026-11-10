@@ -260,6 +260,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       |> filter_events_by_window()
       |> apply_layers()
       |> filter_events_by_visibility()
+      |> drop_display_none()
 
     ~H"""
     <div
@@ -1054,6 +1055,15 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
 
   defp layer_hidden?(assigns, layer) do
     MapSet.member?(assigns[:hidden_layer_ids] || MapSet.new(), to_string(layer.id))
+  end
+
+  # `display: :none` renders in no view (FullCalendar's semantics).
+  defp drop_display_none(assigns) do
+    assign(
+      assigns,
+      :events,
+      Enum.reject(assigns[:events] || [], &PhoenixLiveCalendar.Event.hidden?/1)
+    )
   end
 
   defp filter_events_by_visibility(assigns) do

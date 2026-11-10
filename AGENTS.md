@@ -161,7 +161,7 @@ phoenix_live_calendar/
                                         #   Defaults: visibility (20), all_day (false), display (:auto), editable (true), overlap (true),
                                         #   status (:confirmed), transparency (:opaque), priority (:normal), urgency (:none), extra (%{})
                                         #   Visibility tiers: day≥10, week≥20, month≥30, year≥40 (opt-in via min_visibility on CalendarComponent)
-                                        #   Helpers: visible_at?, all_day?, effective_end, duration_seconds, multi_day?, on_date?, overlaps_range?
+                                        #   Helpers: visible_at?, all_day?, background?, hidden?, effective_end, duration_seconds, multi_day?, on_date?, overlaps_range?
       eventable.ex                      # Eventable protocol — auto-convert consumer structs to Event
       resource.ex                       # Resource struct — @enforce_keys [:id, :title], tree helpers
       availability.ex                   # Availability windows — recurring + date overrides, per-resource
@@ -450,6 +450,15 @@ All events in month view are the same physical size, differentiated only by back
 | `:cancelled` | 50% opacity, strikethrough title |
 | `:pending_approval` | Pulsing animation |
 | `:no_show` | Red tint, strikethrough |
+
+### Display Modes (`Event.display`)
+
+| Display | Time grids (day / N-day / week) | Other views |
+|---------|-------------------------------|-------------|
+| `:auto` | Block (timed) or all-day bar (default) | As before |
+| `:background` | Full-width fill BEHIND the blocks (`.cal-background-events`, `pointer-events-none`): no overlap column (`OverlapLayout.compute/1` skips it), no click/focus — clicks reach the slot below; faint title at the top. All-day → fills the whole column, no all-day bar | Unchanged (EventItem's `cal-event-bg opacity-30`) |
+| `:none` | Not rendered | Not rendered (CalendarComponent drops them) |
+| `:inverse_background` | Not implemented — renders as `:auto` | — |
 
 ### Urgency Indicators (suppressed in compact/month view)
 

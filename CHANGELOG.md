@@ -4,6 +4,19 @@
 
 ### Added
 
+- **`display: :background` in the day, N-day and week views** — the
+  FullCalendar background-event model, finishing what `Event.display` already
+  declared. A background event is a full-width fill behind the day column's
+  blocks: it takes no overlap column (`OverlapLayout.compute/1` now skips
+  it), so a planned block no longer squeezes a real event into a half-width
+  column; it is not interactive — no click, no focus, and clicks reach the
+  time slot underneath; its title shows faintly at its top. An all-day
+  background event fills its days' columns instead of taking an all-day bar.
+  `Event.background?/1` and `Event.hidden?/1` name the two cases.
+- **`display: :none` renders nowhere**: the component drops such events for
+  every view, and the time grids drop them when used directly.
+  `:inverse_background` is still unimplemented (renders as `:auto`).
+
 - **`scroll_to` and `scroll_lead` on the day, N-day and week views.** A 24-hour
   grid used to open at midnight. `scroll_to: :now` (or a `Time`) opens it
   scrolled so that time sits `scroll_lead` minutes (default 60) below the top,

@@ -330,6 +330,19 @@ defmodule PhoenixLiveCalendar.Event do
   def first_date(%__MODULE__{} = event), do: to_date(event.start)
 
   @doc """
+  True for `display: :background`: rendered behind the time grid's blocks,
+  outside the overlap layout, and not interactive.
+  """
+  @spec background?(t()) :: boolean()
+  def background?(%__MODULE__{display: :background}), do: true
+  def background?(_), do: false
+
+  @doc "True for `display: :none`: the event is not rendered."
+  @spec hidden?(t()) :: boolean()
+  def hidden?(%__MODULE__{display: :none}), do: true
+  def hidden?(_), do: false
+
+  @doc """
   The times this event's block occupies on ONE day, clipped to the visible
   `[min_time, max_time]` window — or `nil` when nothing of it is visible
   that day. The single source of truth for per-day time-grid segments:

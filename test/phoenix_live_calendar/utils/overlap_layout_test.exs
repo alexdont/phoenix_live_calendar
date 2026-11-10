@@ -98,4 +98,39 @@ defmodule PhoenixLiveCalendar.Utils.OverlapLayoutTest do
       assert OverlapLayout.position_style(%{}) == "inset-inline-start: 0%; width: 100%"
     end
   end
+
+  describe "display: :background and :none" do
+    test "take no column, so a real event behind a background one keeps the full width" do
+      planned = %Event{
+        id: "plan",
+        start: ~N[2026-04-01 09:00:00],
+        end: ~N[2026-04-01 12:00:00],
+        display: :background
+      }
+
+      real = %Event{id: "real", start: ~N[2026-04-01 10:00:00], end: ~N[2026-04-01 11:00:00]}
+
+      gone = %Event{
+        id: "gone",
+        start: ~N[2026-04-01 10:00:00],
+        end: ~N[2026-04-01 11:00:00],
+        display: :none
+      }
+
+      assert OverlapLayout.compute([planned, real, gone]) == %{
+               "real" => %{column: 0, total_columns: 1}
+             }
+    end
+
+    test "only background events: an empty layout" do
+      bg = %Event{
+        id: "bg",
+        start: ~N[2026-04-01 09:00:00],
+        end: ~N[2026-04-01 10:00:00],
+        display: :background
+      }
+
+      assert OverlapLayout.compute([bg]) == %{}
+    end
+  end
 end

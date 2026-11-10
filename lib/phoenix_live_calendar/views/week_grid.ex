@@ -48,9 +48,23 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
   - `class` — Additional CSS classes
   - `dir` — Text direction (default: `:ltr`)
 
+  ## Event `display`
+
+  - `:auto` — a block in the day column (timed) or a bar in the all-day row.
+  - `:background` — a full-width fill BEHIND the day column's blocks, the
+    FullCalendar background-event model (planned time, availability, a
+    holiday): it takes no overlap column, so it never squeezes a real
+    event to half width; it is not interactive (no click, no focus — clicks
+    reach the time slot underneath, so `on_time_click` keeps working on
+    it); its title shows faintly at its top. An all-day background event
+    fills its days' whole columns instead of taking an all-day bar.
+  - `:none` — not rendered.
+  - `:inverse_background` — not implemented yet; renders as `:auto`.
+
   ## Slots
 
-  - `event` — Custom event rendering
+  - `event` — Custom event rendering (foreground events; background events
+    keep the library's fill)
   - `time_label` — Custom time gutter label
   """
   attr :dates, :list, required: true
@@ -114,12 +128,20 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
         slot_duration: assigns.slot_duration
       )
 
+    # display: :none never renders; :background goes to its own layer,
+    # behind the blocks and outside the overlap layout.
+    {background_events, foreground_events} =
+      assigns.events
+      |> Enum.reject(&Event.hidden?/1)
+      |> Enum.split_with(&Event.background?/1)
+
     # Separate all-day and timed events
     {all_day_events, timed_events} =
-      Enum.split_with(assigns.events, &Event.all_day?/1)
+      Enum.split_with(foreground_events, &Event.all_day?/1)
 
     # Group events by date
     events_by_date = DateHelpers.group_events_by_date(timed_events, assigns.dates)
+    background_by_date = DateHelpers.group_events_by_date(background_events, assigns.dates)
 
     now = assigns.now || Time.utc_now()
     col_count = length(assigns.dates)
@@ -143,6 +165,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
       |> assign(:today, today)
       |> assign(:slots, slots)
       |> assign(:events_by_date, events_by_date)
+      |> assign(:background_by_date, background_by_date)
       |> assign(:all_day_events, all_day_events)
       |> assign(:overlap_layouts, overlap_layouts)
       |> assign(:now, now)
@@ -328,6 +351,39 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
             >
             </div>
 
+            <%!-- Background events: full-width fills behind the blocks, out
+                 of the overlap layout and out of the way of clicks
+                 (pointer-events-none), so a click lands on the slot below. --%>
+            <div
+              :if={Map.get(@background_by_date, date, []) != []}
+              class="cal-background-events absolute inset-0 pointer-events-none"
+            >
+              <div
+                :for={
+                  {event, window} <-
+                    day_segments(Map.get(@background_by_date, date, []), date, @min_time, @max_time)
+                }
+                id={"cal-bg-event-#{event.id}-#{EventItem.instance_suffix(@id, Date.to_iso8601(date))}"}
+                class={["cal-event-bg absolute inset-x-0 overflow-hidden", event.class]}
+                style={background_position_style(window, @min_time, @max_time)}
+                data-event-id={event.id}
+                data-display="background"
+                title={event.title}
+              >
+                <div class={[
+                  "absolute inset-0 opacity-30",
+                  event |> PhoenixLiveCalendar.Theme.event_colors("bg-primary/80") |> elem(0)
+                ]}>
+                </div>
+                <span
+                  :if={event.title}
+                  class="cal-event-bg-title relative block truncate px-1 pt-0.5 text-[11px] leading-tight text-base-content/70"
+                >
+                  {event.title}
+                </span>
+              </div>
+            </div>
+
             <%!-- Positioned events with overlap layout --%>
             <div class="absolute inset-0 pointer-events-none">
               <% day_layout = Map.get(@overlap_layouts, date, %{}) %>
@@ -484,6 +540,15 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
         window -> [{event, window}]
       end
     end)
+  end
+
+  # A background event spans the column's full width; only its vertical
+  # extent comes from the time window (no height floor: a fill should be
+  # exactly as long as the time it stands for).
+  defp background_position_style({start_time, end_time}, min_time, max_time) do
+    top = TimeSlots.time_to_percentage(start_time, min_time: min_time, max_time: max_time)
+    bottom = TimeSlots.time_to_percentage(end_time, min_time: min_time, max_time: max_time)
+    "top: #{top}%; height: #{Float.round(bottom - top, 2)}%;"
   end
 
   defp event_position_style_with_overlap(

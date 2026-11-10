@@ -1045,6 +1045,22 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
     end
   end
 
+  describe "display: :none" do
+    test "renders in no view" do
+      hidden = %PhoenixLiveCalendar.Event{
+        id: "h",
+        title: "Hidden one",
+        start: ~N[2026-06-15 09:00:00],
+        end: ~N[2026-06-15 10:00:00],
+        display: :none
+      }
+
+      for view <- [:month, :week, :day, :agenda] do
+        refute render_html(view, %{events: [hidden]}) =~ "Hidden one", "shown in #{inspect(view)}"
+      end
+    end
+  end
+
   defp render_html(view, extra \\ %{}) do
     base = %{
       id: "cal",

@@ -35,6 +35,10 @@ defmodule PhoenixLiveCalendar.Utils.OverlapLayout do
   Returns a map from event ID to `%{column: N, total_columns: M}`.
   Events that don't overlap get `%{column: 0, total_columns: 1}`.
 
+  `display: :background` and `display: :none` events take no column and
+  get no entry: a background event sits behind the blocks (FullCalendar's
+  model), so it must never push a real event into a narrower column.
+
   ## Examples
 
       events = [
@@ -51,10 +55,15 @@ defmodule PhoenixLiveCalendar.Utils.OverlapLayout do
       # }
   """
   @spec compute([Event.t()]) :: layout_map()
-  def compute([]), do: %{}
-  def compute([event]), do: %{event.id => %{column: 0, total_columns: 1}}
-
   def compute(events) do
+    events = Enum.reject(events, &(Event.background?(&1) or Event.hidden?(&1)))
+    layout(events)
+  end
+
+  defp layout([]), do: %{}
+  defp layout([event]), do: %{event.id => %{column: 0, total_columns: 1}}
+
+  defp layout(events) do
     do_compute = fn ->
       timed =
         events

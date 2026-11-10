@@ -596,4 +596,111 @@ defmodule PhoenixLiveCalendar.Views.WeekGridTest do
       refute render(~H"<.week_grid dates={@dates} scroll_to={:now} />") =~ "cal-scroll-anchor"
     end
   end
+
+  describe "display: :background" do
+    defp planned_and_real do
+      [
+        %Event{
+          id: "plan",
+          title: "Deep work",
+          start: ~N[2026-04-01 09:00:00],
+          end: ~N[2026-04-01 12:00:00],
+          display: :background,
+          color: "bg-info"
+        },
+        %Event{
+          id: "real",
+          title: "Call",
+          start: ~N[2026-04-01 10:00:00],
+          end: ~N[2026-04-01 11:00:00]
+        }
+      ]
+    end
+
+    test "renders behind, full width, and leaves the real event its full width" do
+      assigns = %{dates: [~D[2026-04-01]], events: planned_and_real()}
+
+      html =
+        render(~H"<.week_grid id=\"g\" dates={@dates} events={@events} on_event_click=\"pick\" />")
+
+      # the background fill: its own non-interactive layer, the title shown faintly
+      assert html =~ ~s(class="cal-background-events absolute inset-0 pointer-events-none")
+      assert html =~ ~s(id="cal-bg-event-plan-g-2026-04-01")
+      assert html =~ "Deep work"
+      assert html =~ "bg-info"
+      # 09:00-12:00 of a 24h grid
+      assert html =~ "top: 37.5%; height: 12.5%;"
+
+      # the real event is not squeezed into a half-width column
+      assert html =~ "inset-inline-start: 0.0%; width: 100.0%"
+      refute html =~ "width: 50.0%"
+    end
+
+    test "a background event is not a button, takes no focus and has no click" do
+      assigns = %{dates: [~D[2026-04-01]], events: planned_and_real()}
+      html = render(~H"<.week_grid dates={@dates} events={@events} on_event_click=\"pick\" />")
+
+      [bg] = Regex.run(~r/<div[^>]*id="cal-bg-event-plan[^"]*"[^>]*>/, html)
+      refute bg =~ "role="
+      refute bg =~ "tabindex"
+      refute bg =~ "phx-click"
+      refute html =~ ~s(id="cal-event-plan)
+    end
+
+    test "an all-day background event fills the column instead of taking an all-day bar" do
+      holiday = %Event{
+        id: "hol",
+        title: "Holiday",
+        start: ~D[2026-04-01],
+        all_day: true,
+        display: :background
+      }
+
+      assigns = %{dates: [~D[2026-04-01], ~D[2026-04-02]], events: [holiday]}
+      html = render(~H"<.week_grid dates={@dates} events={@events} />")
+
+      assert html =~ ~s(id="cal-bg-event-hol-2026-04-01")
+      refute html =~ ~s(id="cal-bg-event-hol-2026-04-02")
+      refute html =~ "cal-spanning-bar"
+      assert html =~ "top: 0.0%; height: 100.0%;"
+    end
+
+    test "display: :none renders nowhere" do
+      events = [
+        %Event{
+          id: "x",
+          title: "Hidden",
+          start: ~N[2026-04-01 09:00:00],
+          end: ~N[2026-04-01 10:00:00],
+          display: :none
+        },
+        %Event{
+          id: "y",
+          title: "Hidden all day",
+          start: ~D[2026-04-01],
+          all_day: true,
+          display: :none
+        }
+      ]
+
+      assigns = %{dates: [~D[2026-04-01]], events: events}
+      html = render(~H"<.week_grid dates={@dates} events={@events} />")
+      refute html =~ "Hidden"
+    end
+
+    test "a custom :event slot renders foreground events only" do
+      assigns = %{dates: [~D[2026-04-01]], events: planned_and_real()}
+
+      html =
+        render(~H"""
+        <.week_grid dates={@dates} events={@events}>
+          <:event :let={e}><span class="mine">{e.title}</span></:event>
+        </.week_grid>
+        """)
+
+      assert html =~ ~s(<span class="mine">Call</span>)
+      refute html =~ ~s(<span class="mine">Deep work</span>)
+      assert html =~ "cal-event-bg-title"
+    end
+  end
 end
