@@ -703,4 +703,64 @@ defmodule PhoenixLiveCalendar.Views.WeekGridTest do
       assert html =~ "cal-event-bg-title"
     end
   end
+
+  describe "editable" do
+    defp gym,
+      do: %Event{
+        id: "gym",
+        title: "Gym",
+        start: ~N[2026-04-01 18:00:00],
+        end: ~N[2026-04-01 19:00:00]
+      }
+
+    test "off by default: no hook, no handles, no wrapper marks" do
+      assigns = %{dates: [~D[2026-04-01]], events: [gym()]}
+      html = render(~H"<.week_grid dates={@dates} events={@events} />")
+      refute html =~ "TimeGridEdit"
+      refute html =~ "data-resize-handle"
+      refute html =~ "data-event-wrapper"
+    end
+
+    test "on: the grid carries the hook and editable blocks their edges" do
+      assigns = %{dates: [~D[2026-04-01]], events: [gym()]}
+      html = render(~H"<.week_grid id=\"g\" dates={@dates} events={@events} editable />")
+
+      assert html =~ ~s(id="g-edit")
+      assert html =~ ~s(phx-hook="TimeGridEdit")
+      assert html =~ ~s(data-event-wrapper="gym")
+      assert html =~ ~s(data-resize-handle="top")
+      assert html =~ ~s(data-resize-handle="bottom")
+      assert html =~ "cal-editable touch-none select-none"
+    end
+
+    test "an event with editable: false takes no part" do
+      fixed = %{gym() | id: "fixed", editable: false}
+      assigns = %{dates: [~D[2026-04-01]], events: [fixed]}
+      html = render(~H"<.week_grid dates={@dates} events={@events} editable />")
+      refute html =~ "data-event-wrapper"
+      refute html =~ "data-resize-handle"
+    end
+
+    test "across midnight: the top edge where it starts, the bottom where it ends" do
+      night = %Event{id: "n", start: ~N[2026-04-01 22:00:00], end: ~N[2026-04-02 02:00:00]}
+      assigns = %{dates: [~D[2026-04-01], ~D[2026-04-02]], events: [night]}
+      html = render(~H"<.week_grid dates={@dates} events={@events} editable />")
+
+      [first_day, second_day] =
+        html |> String.split(~s(data-date="2026-04-02")) |> Enum.take(2)
+
+      assert first_day =~ ~s(data-resize-handle="top")
+      refute first_day =~ ~s(data-resize-handle="bottom")
+      assert second_day =~ ~s(data-resize-handle="bottom")
+      refute second_day =~ ~s(data-resize-handle="top")
+    end
+
+    test "slots carry their end and a label for hover hints" do
+      assigns = %{dates: [~D[2026-04-01]]}
+      html = render(~H"<.week_grid dates={@dates} slot_duration={30} time_format={:h24} />")
+      assert html =~ ~s(data-slot="14:30:00" data-slot-end="15:00:00" data-slot-label="14:30")
+      # The last slot ends at the window's end.
+      assert html =~ ~s(data-slot="23:30:00" data-slot-end="23:59:59")
+    end
+  end
 end

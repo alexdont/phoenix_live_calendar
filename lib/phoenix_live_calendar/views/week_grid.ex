@@ -89,6 +89,15 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
     doc:
       "Current wall-clock time for the now indicator (default: `Time.utc_now()`). Pass the viewer's local time when your events/`today` are in the viewer's frame."
 
+  attr :editable, :boolean,
+    default: false,
+    doc:
+      "Move and resize timed events in place (the `TimeGridEdit` hook): drag a block to another slot or day, pull its top or bottom edge. Only events with `editable: true` (the default) take part; the result arrives as `lc_event_drop` / `lc_event_resize`. Without JS the grid renders exactly as before, minus nothing."
+
+  attr :edit_target, :any,
+    default: nil,
+    doc: "`phx-target` for the edit hook's pushes (the CalendarComponent passes `@myself`)."
+
   attr :scroll_to, :any,
     default: nil,
     doc:
@@ -181,7 +190,13 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
       )
 
     ~H"""
-    <div class={["cal-week-grid flex flex-col", @class]} dir={to_string(@dir)}>
+    <div
+      class={["cal-week-grid flex flex-col", @class]}
+      dir={to_string(@dir)}
+      id={if(@editable, do: "#{@id || "lc"}-edit")}
+      phx-hook={if(@editable, do: "TimeGridEdit")}
+      phx-target={if(@editable, do: @edit_target)}
+    >
       <%!-- Day headers --%>
       <div class="cal-week-header flex border-b border-base-200">
         <div class="w-12 sm:w-16 flex-shrink-0"></div>
@@ -348,6 +363,8 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
               phx-value-date={Date.to_iso8601(date)}
               phx-value-time={Time.to_iso8601(slot)}
               data-slot={Time.to_iso8601(slot)}
+              data-slot-end={Time.to_iso8601(slot_end(slot, @slot_duration, @max_time))}
+              data-slot-label={I18n.format_time(slot, format: @time_format)}
             >
             </div>
 
@@ -385,14 +402,18 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
             </div>
 
             <%!-- Positioned events with overlap layout --%>
-            <div class="absolute inset-0 pointer-events-none">
+            <div class="cal-event-layer absolute inset-0 pointer-events-none">
               <% day_layout = Map.get(@overlap_layouts, date, %{}) %>
               <div
                 :for={
                   {event, window} <-
                     day_segments(Map.get(@events_by_date, date, []), date, @min_time, @max_time)
                 }
-                class="absolute pointer-events-auto z-10"
+                class={[
+                  "absolute pointer-events-auto z-10",
+                  @editable && event.editable && "cal-editable touch-none select-none"
+                ]}
+                data-event-wrapper={if(@editable and event.editable, do: event.id)}
                 style={
                   event_position_style_with_overlap(
                     event,
@@ -417,6 +438,23 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
                     class="h-full text-xs border-s-2 border-primary"
                   />
                 <% end %>
+                <%!-- Resize edges (editable only): the top on the piece where
+                     the event starts, the bottom where it ends, so a block
+                     across midnight offers each edge once. --%>
+                <div
+                  :if={@editable and event.editable and Event.first_date(event) == date}
+                  data-resize-handle="top"
+                  class="cal-resize-handle absolute inset-x-0 -top-0.5 h-2 cursor-ns-resize"
+                  aria-hidden="true"
+                >
+                </div>
+                <div
+                  :if={@editable and event.editable and Event.last_date(event) == date}
+                  data-resize-handle="bottom"
+                  class="cal-resize-handle absolute inset-x-0 -bottom-0.5 h-2 cursor-ns-resize"
+                  aria-hidden="true"
+                >
+                </div>
               </div>
             </div>
 
@@ -435,6 +473,15 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
   end
 
   # -- Private helpers --
+
+  # The end of a slot: the next slot's start, clamped to the window's end.
+  defp slot_end(slot, duration, max_time) do
+    ends = Time.add(slot, max(duration, 1) * 60)
+
+    if Time.compare(ends, slot) != :gt or Time.compare(ends, max_time) == :gt,
+      do: max_time,
+      else: ends
+  end
 
   # Where the grid should open, as a percentage of its height (the now
   # indicator's own scale), or nil for "don't scroll".

@@ -625,6 +625,211 @@
   };
 
   // ============================================================
+  // TimeGridEdit — move and resize timed events in place (editable_events)
+  // ============================================================
+  // On the week/day/N-day grid root when `editable_events` is set. Works on
+  // the server-rendered DOM only: an editable block's positioned wrapper is
+  // `[data-event-wrapper]`, its edges are `[data-resize-handle]`, and every
+  // slot carries `data-slot` / `data-slot-end` in its day column
+  // (`[data-date]`). It snaps to those slots, so the times it reports are
+  // always the server's own slot boundaries — it does no time arithmetic.
+  //
+  //   * drag a block (5px dead zone) → `lc_event_drop {event_id, new_date,
+  //     new_time}`: the slot under the block's TOP edge, in the column under
+  //     the pointer (looking through other blocks);
+  //   * pull an edge → `lc_event_resize {event_id, edge, new_time}`: the top
+  //     edge snaps to a slot start, the bottom to a slot end; never past the
+  //     other edge (at least one slot).
+  //
+  // The block itself follows the pointer as a preview; the server's
+  // re-render puts it where it really is. A drag swallows the click that
+  // follows it, Escape cancels, and the blocks are `touch-action: none` so a
+  // finger drags them while the rest of the grid still scrolls.
+  window.PhoenixLiveCalendarHooks.TimeGridEdit = {
+    mounted() {
+      this._op = null;
+
+      this._onDown = (e) => {
+        if (e.button !== undefined && e.button !== 0) return;
+        var wrapper = e.target.closest && e.target.closest("[data-event-wrapper]");
+        if (!wrapper || !this.el.contains(wrapper)) return;
+        var column = wrapper.closest("[data-date]");
+        if (!column) return;
+
+        var handle = e.target.closest("[data-resize-handle]");
+        var rect = wrapper.getBoundingClientRect();
+        this._op = {
+          kind: handle ? "resize" : "pending",
+          edge: handle ? handle.getAttribute("data-resize-handle") : null,
+          id: wrapper.getAttribute("data-event-wrapper"),
+          wrapper: wrapper,
+          home: wrapper.parentElement,
+          column: column,
+          startX: e.clientX,
+          startY: e.clientY,
+          grabOffset: e.clientY - rect.top,
+          original: { top: wrapper.style.top, height: wrapper.style.height, left: wrapper.style.insetInlineStart, width: wrapper.style.width },
+          target: null,
+        };
+        if (handle) {
+          e.preventDefault();
+          e.stopPropagation();
+          wrapper.classList.add("cal-resizing");
+        }
+      };
+
+      this._onMove = (e) => {
+        var op = this._op;
+        if (!op) return;
+        if (op.kind === "pending") {
+          if (Math.abs(e.clientX - op.startX) + Math.abs(e.clientY - op.startY) <= 5) return;
+          op.kind = "move";
+          op.wrapper.classList.add("cal-dragging");
+        }
+        e.preventDefault();
+        if (op.kind === "move") this._previewMove(e);
+        else this._previewResize(e);
+      };
+
+      this._onUp = (e) => {
+        var op = this._op;
+        if (!op) return;
+        this._op = null;
+        if (op.kind === "pending") return; // a click: let it through
+
+        // The click that follows a drag must not open the event.
+        var swallow = function (ev) {
+          ev.preventDefault();
+          ev.stopPropagation();
+        };
+        this.el.addEventListener("click", swallow, { capture: true, once: true });
+        setTimeout(() => this.el.removeEventListener("click", swallow, { capture: true }), 0);
+
+        this._reset(op);
+        if (!op.target) return;
+
+        if (op.kind === "move") {
+          this.pushEventTo(this.el, "lc_event_drop", {
+            event_id: op.id,
+            new_date: op.target.date,
+            new_time: op.target.time,
+            resource_id: null,
+          });
+        } else {
+          this.pushEventTo(this.el, "lc_event_resize", {
+            event_id: op.id,
+            edge: op.edge,
+            new_time: op.target.time,
+          });
+        }
+      };
+
+      this._onCancel = () => {
+        if (!this._op) return;
+        this._reset(this._op);
+        this._op = null;
+      };
+
+      this._onKey = (e) => {
+        if (e.key === "Escape") this._onCancel();
+      };
+
+      this.el.addEventListener("pointerdown", this._onDown);
+      document.addEventListener("pointermove", this._onMove);
+      document.addEventListener("pointerup", this._onUp);
+      document.addEventListener("pointercancel", this._onCancel);
+      document.addEventListener("keydown", this._onKey);
+    },
+
+    destroyed() {
+      this.el.removeEventListener("pointerdown", this._onDown);
+      document.removeEventListener("pointermove", this._onMove);
+      document.removeEventListener("pointerup", this._onUp);
+      document.removeEventListener("pointercancel", this._onCancel);
+      document.removeEventListener("keydown", this._onKey);
+    },
+
+    // The slot of `column` at viewport height `y` (clamped to the column).
+    _slotAt(column, y) {
+      var slots = column.querySelectorAll("[data-slot]");
+      if (!slots.length) return null;
+      for (var i = 0; i < slots.length; i++) {
+        var r = slots[i].getBoundingClientRect();
+        if (y < r.bottom) return slots[i];
+      }
+      return slots[slots.length - 1];
+    },
+
+    _columnAt(x, y) {
+      var stack = document.elementsFromPoint(x, y);
+      for (var i = 0; i < stack.length; i++) {
+        var col = stack[i].closest && stack[i].closest("[data-date]");
+        if (col && this.el.contains(col) && col.querySelector("[data-slot]")) return col;
+      }
+      return null;
+    },
+
+    _previewMove(e) {
+      var op = this._op;
+      var column = this._columnAt(e.clientX, e.clientY) || op.column;
+      var slot = this._slotAt(column, e.clientY - op.grabOffset);
+      if (!slot) return;
+
+      // Show the block where it would land: in the target column, at the slot.
+      if (column !== op.wrapper.parentElement.closest("[data-date]")) {
+        var layer = column.querySelector(".cal-event-layer");
+        if (layer) layer.appendChild(op.wrapper);
+      }
+      var colTop = column.getBoundingClientRect().top;
+      op.wrapper.style.top = slot.getBoundingClientRect().top - colTop + "px";
+      op.wrapper.style.insetInlineStart = "0%";
+      op.wrapper.style.width = "100%";
+      op.target = { date: column.getAttribute("data-date"), time: slot.getAttribute("data-slot") };
+    },
+
+    _previewResize(e) {
+      var op = this._op;
+      var column = op.column;
+      var colTop = column.getBoundingClientRect().top;
+      var rect = op.wrapper.getBoundingClientRect();
+      var slot = this._slotAt(column, e.clientY);
+      if (!slot) return;
+      var r = slot.getBoundingClientRect();
+
+      if (op.edge === "bottom") {
+        // Never above the block's first slot: at least one slot long.
+        var first = this._slotAt(column, rect.top + 1);
+        if (first && r.top < first.getBoundingClientRect().top) {
+          slot = first;
+          r = slot.getBoundingClientRect();
+        }
+        op.wrapper.style.height = r.bottom - rect.top + "px";
+        op.target = { time: slot.getAttribute("data-slot-end") };
+      } else {
+        var last = this._slotAt(column, rect.bottom - 1);
+        if (last && r.top > last.getBoundingClientRect().top) {
+          slot = last;
+          r = slot.getBoundingClientRect();
+        }
+        op.wrapper.style.top = r.top - colTop + "px";
+        op.wrapper.style.height = rect.bottom - r.top + "px";
+        op.target = { time: slot.getAttribute("data-slot") };
+      }
+    },
+
+    // Put the block back as the server drew it; its re-render (after the
+    // push) moves it for real, or leaves it if the host refused.
+    _reset(op) {
+      op.wrapper.classList.remove("cal-dragging", "cal-resizing");
+      if (op.home && op.wrapper.parentElement !== op.home) op.home.appendChild(op.wrapper);
+      op.wrapper.style.top = op.original.top;
+      op.wrapper.style.height = op.original.height;
+      op.wrapper.style.insetInlineStart = op.original.left;
+      op.wrapper.style.width = op.original.width;
+    },
+  };
+
+  // ============================================================
   // ExternalDrop — accept items dragged in from OUTSIDE the calendar
   // ============================================================
   // Native HTML drag and drop. A host marks any element outside the calendar

@@ -1092,6 +1092,31 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
     end
   end
 
+  describe "editable_events" do
+    test "turns on in-place editing in the day, N-day and week views only" do
+      for view <- [:day, {:n_day, 3}, :week] do
+        assert render_html(view, %{editable_events: true}) =~ ~s(phx-hook="TimeGridEdit"),
+               "not in #{inspect(view)}"
+      end
+
+      refute render_html(:week) =~ "TimeGridEdit"
+      refute render_html(:month, %{editable_events: true}) =~ "TimeGridEdit"
+    end
+
+    test "a resize to a slot end is reported with the edge" do
+      pid = self()
+      socket = mounted() |> update(%{on_event_resize: cb(pid, :rs)})
+
+      CalendarComponent.handle_event(
+        "lc_event_resize",
+        %{"event_id" => "e", "edge" => "bottom", "new_time" => "15:00:00"},
+        socket
+      )
+
+      assert_received {:rs, %{event_id: "e", edge: "bottom", new_time: ~T[15:00:00]}}
+    end
+  end
+
   describe "scroll_to" do
     test "reaches the day, N-day and week grids" do
       for view <- [:day, {:n_day, 3}, :week] do

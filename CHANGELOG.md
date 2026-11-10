@@ -4,6 +4,24 @@
 
 ### Added
 
+- **`editable_events`: move and resize timed events in place** in the day,
+  N-day and week views. Drag a block to another slot or day; pull its top or
+  bottom edge (each rendered once, on the piece of a midnight-crossing event
+  that owns it). The new `TimeGridEdit` hook snaps to the server-rendered
+  slots (`data-slot`, and the new `data-slot-end`), previews by moving the
+  block itself, reports through the existing `on_event_drop` /
+  `on_event_resize`, swallows the click after a drag, cancels on Escape, and
+  works with touch (the blocks are `touch-none`; the grid still scrolls).
+  Events with `editable: false` take no part. Without JS nothing changes.
+- Slots carry `data-slot-label` (the formatted time), for host hover hints
+  such as "+ 14:30".
+
+### Fixed (by the above, for time grids)
+
+- The `enable_hooks` resize hook looked for `[data-resize-handle]` elements no
+  template rendered, so events could not be resized; and the drag hook
+  released over another block reported the date without a time.
+
 - **`on_external_drop`: accept items dragged in from outside the calendar.**
   Mark any element `data-lc-external-id="<host id>"` and `draggable="true"`;
   dropped on a time slot of the day/N-day/week/resource views the callback gets

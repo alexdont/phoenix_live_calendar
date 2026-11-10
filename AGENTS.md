@@ -118,7 +118,7 @@ mix format && mix compile --warnings-as-errors && mix credo --strict && mix test
 
 - ~40 Elixir source files, 1 Mix task, 2 asset files (JS + CSS), ~37 test files
 - Layer 0 (Pure Elixir views): Complete — all 8 views
-- Layer 1 (JS hooks): Complete — 11 hooks (incl. SyncAnimations, ScrollToTime, ExternalDrop)
+- Layer 1 (JS hooks): Complete — 12 hooks (incl. SyncAnimations, ScrollToTime, ExternalDrop, TimeGridEdit)
 - 0.3 wave (2026-07): Theme color tokens, Heatmap (+palettes/:dot),
   Widgets (next_events / week_strip / activity_grid / activity_month /
   mini_timeline), Layers + legend, slot forwarding through the component,
@@ -273,7 +273,7 @@ phoenix_live_calendar/
   priv/
     static/
       assets/
-        phoenix_live_calendar.js                # 11 JS hooks (see JS Hooks section)
+        phoenix_live_calendar.js                # 12 JS hooks (see JS Hooks section)
         phoenix_live_calendar.css               # Optional CSS: urgency animations, drag states, prefers-reduced-motion
 
   test/                                 # ~37 test files (see mix test for the live count)
@@ -527,6 +527,7 @@ Fixed overlay modal with semi-transparent backdrop (`bg-base-content/30`).
 | `marker_ticker_interval` | `3000` | Milliseconds between marker transitions |
 | `enable_hooks` | `false` | Attach JS hooks to container for drag interactions |
 | `now` | `Time.utc_now()` | Wall-clock for the now indicators (pass viewer-local with a tz-correct `today`) |
+| `editable_events` | `false` | Day/N-day/week: in-place move + resize (`TimeGridEdit`), editable events get `data-event-wrapper` + top/bottom `data-resize-handle`s; slots get `data-slot-end`/`data-slot-label` |
 | `scroll_to` | `nil` | `:now` / `Time` — day/N-day/week open scrolled to it (minus `scroll_lead`) via `ScrollToTime`; JS off → starts at `min_time` |
 | `scroll_lead` | `60` | Minutes of context above `scroll_to`, clamped to `min_time` |
 | `events_mode` | `:full` | `:window` trims events to the visible range (pair with `on_date_range_change`) |
@@ -624,6 +625,7 @@ Packaged as `window.PhoenixLiveCalendarHooks`
 | `ResponsiveContainer` | ResizeObserver, 150ms debounce |
 | `TouchHandler` | Long-press for mobile (500ms) |
 | `PhoenixLiveCalendarContainer` | Composite — initializes TimeRangeSelect, EventDrag, EventResize, ResponsiveContainer, TouchHandler |
+| `TimeGridEdit` | On the week grid root when `editable_events`. Pointer events on `[data-event-wrapper]`: drag (5px dead zone) → the slot under the block's TOP edge in the column under the pointer → `lc_event_drop`; edge (`[data-resize-handle]`) → snaps to slot start (top) / `data-slot-end` (bottom), min one slot → `lc_event_resize`. Live preview moves the wrapper; reset on up/Escape/pointercancel (server re-render places it). Swallows the post-drag click. Blocks are `touch-none select-none`. Replaces the old EventDrag/EventResize for time grids (those stay for `enable_hooks`; they drop the time when released over another block and the resize hook had no handles to grab) |
 | `ExternalDrop` | On `.cal-view-container` when `on_external_drop` is set (its own element, so it composes with `enable_hooks`). Native HTML DnD: a document `dragstart` listener tags drags starting on `[data-lc-external-id]` with the `application/x-lc-external-id` type; only those are accepted. Target = the element under the pointer carrying `phx-value-date`+`phx-value-time` (looks through event blocks via `elementsFromPoint`), else a slot-less `[data-date]` (month cell → `time: null`). `.cal-drop-target` while hovering. No touch (HTML DnD) |
 | `ScrollToTime` | On the server-positioned `.cal-scroll-anchor` (`scroll_to`): scrolls the grid's nearest scrolling ancestor so the anchor is at its top. Measures no layout to decide the target. Once per anchor; the anchor id carries the visible dates (`<id>-scroll-<first date>-<count>`), so a view change/navigation re-scrolls and a plain re-render (ticking `now`) never fights the user. Mounted hidden → scrolls on first size (ResizeObserver) |
 | `SyncAnimations` | Re-anchors CSS animations to one document-timeline origin on mount + subtree changes (MutationObserver/ResizeObserver + per-cell background offsets) so per-cell animations stay in phase across LiveView patches |

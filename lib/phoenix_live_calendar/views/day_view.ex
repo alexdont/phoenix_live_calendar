@@ -24,6 +24,8 @@ defmodule PhoenixLiveCalendar.Views.DayView do
   attr :slot_height, :string, default: "3rem"
   attr :show_now_indicator, :boolean, default: true
   attr :scroll_to, :any, default: nil, doc: "See `WeekGrid.week_grid/1`."
+  attr :editable, :boolean, default: false, doc: "See `WeekGrid.week_grid/1`."
+  attr :edit_target, :any, default: nil
   attr :scroll_lead, :integer, default: 60, doc: "See `WeekGrid.week_grid/1`."
   attr :now, Time, default: nil
   attr :show_all_day_row, :boolean, default: true
@@ -58,6 +60,8 @@ defmodule PhoenixLiveCalendar.Views.DayView do
       slot_height={@slot_height}
       show_now_indicator={@show_now_indicator}
       scroll_to={@scroll_to}
+      editable={@editable}
+      edit_target={@edit_target}
       scroll_lead={@scroll_lead}
       now={@now}
       show_all_day_row={@show_all_day_row}
