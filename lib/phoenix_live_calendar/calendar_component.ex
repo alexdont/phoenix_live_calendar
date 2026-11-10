@@ -378,10 +378,14 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
            the attr) is no scroll fallback and no corner clip for that view. --%>
       <%!-- on_external_drop (layer 1): the ExternalDrop hook accepts items
            dragged in from outside onto this view's slots/day cells. Its own
-           element, so it composes with the root's enable_hooks container. --%>
+           element, so it composes with the root's enable_hooks container.
+           phx-target names this component explicitly: a browser would route
+           pushEventTo(el) here anyway, LiveViewTest's render_hook only does
+           with the attribute. --%>
       <div
         id={if(assigns[:on_external_drop], do: "#{@id}-drop")}
         phx-hook={if(assigns[:on_external_drop], do: "ExternalDrop")}
+        phx-target={if(assigns[:on_external_drop], do: @myself)}
         class={[
           "cal-view-container flex-1",
           view_overflow_class(assigns),
