@@ -668,6 +668,7 @@
           startX: e.clientX,
           startY: e.clientY,
           grabOffset: e.clientY - rect.top,
+          height: rect.height,
           original: { top: wrapper.style.top, height: wrapper.style.height, left: wrapper.style.insetInlineStart, width: wrapper.style.width },
           target: null,
         };
@@ -781,10 +782,67 @@
         if (layer) layer.appendChild(op.wrapper);
       }
       var colTop = column.getBoundingClientRect().top;
-      op.wrapper.style.top = slot.getBoundingClientRect().top - colTop + "px";
+      var top = slot.getBoundingClientRect().top;
+      var time = slot.getAttribute("data-slot");
+
+      // edit_magnet: sit flush against a neighbour, never on top of one.
+      // Distances are from where the block really is under the pointer, not
+      // from the slot it rounds to.
+      var snapped = this._magnetMove(op, column, e.clientY - op.grabOffset, time);
+      if (snapped) {
+        top = snapped.top;
+        time = snapped.time;
+      }
+
+      op.wrapper.style.top = top - colTop + "px";
       op.wrapper.style.insetInlineStart = "0%";
       op.wrapper.style.width = "100%";
-      op.target = { date: column.getAttribute("data-date"), time: slot.getAttribute("data-slot") };
+      op.target = { date: column.getAttribute("data-date"), time: time };
+    },
+
+    // A moved block (keeping its length) next to the other editable blocks of
+    // the target column: flush against a neighbour's edge when within
+    // SNAP_PX of it, and pushed to the nearer free side of a block it would
+    // overlap. The new start is a neighbour's exact time (or one minus the
+    // block's length), never a measured one. null: no magnet, or no fit.
+    _magnetMove(op, column, pointerTop, time) {
+      var top = pointerTop;
+      if (this.el.getAttribute("data-edit-magnet") !== "true") return null;
+      var secs = function (t) {
+        var p = t.split(":").map(Number);
+        return p[0] * 3600 + p[1] * 60 + (p[2] || 0);
+      };
+      var clock = function (n) {
+        var pad = function (v) { return String(v).padStart(2, "0"); };
+        return pad(Math.floor(n / 3600)) + ":" + pad(Math.floor((n % 3600) / 60)) + ":" + pad(n % 60);
+      };
+      var dur =
+        secs(op.wrapper.getAttribute("data-window-end")) - secs(op.wrapper.getAttribute("data-window-start"));
+      var start = secs(time);
+      var others = [];
+      column.querySelectorAll("[data-event-wrapper]").forEach(function (w) {
+        if (w === op.wrapper || !w.getAttribute("data-window-start")) return;
+        var r = w.getBoundingClientRect();
+        others.push({ s: secs(w.getAttribute("data-window-start")), e: secs(w.getAttribute("data-window-end")), top: r.top, bottom: r.bottom });
+      });
+      var overlaps = function (s) {
+        return others.some(function (o) { return s < o.e && s + dur > o.s; });
+      };
+
+      var best = null;
+      others.forEach(function (o) {
+        var hit = start < o.e && start + dur > o.s;
+        [
+          { s: o.e, top: o.bottom },                 // right after it
+          { s: o.s - dur, top: o.top - op.height }, // right before it
+        ].forEach(function (c) {
+          var near = Math.abs(c.top - top) < this.SNAP_PX;
+          if (!(hit || near) || c.s < 0 || c.s + dur > 86400 || overlaps(c.s)) return;
+          if (!best || Math.abs(c.top - top) < Math.abs(best.top - top)) best = c;
+        }, this);
+      }, this);
+
+      return best ? { top: best.top, time: clock(best.s) } : null;
     },
 
     _previewResize(e) {

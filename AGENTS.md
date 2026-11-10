@@ -527,7 +527,7 @@ Fixed overlay modal with semi-transparent backdrop (`bg-base-content/30`).
 | `marker_ticker_interval` | `3000` | Milliseconds between marker transitions |
 | `enable_hooks` | `false` | Attach JS hooks to container for drag interactions |
 | `now` | `Time.utc_now()` | Wall-clock for the now indicators (pass viewer-local with a tz-correct `today`) |
-| `edit_magnet` | `false` | With `editable_events`: edges stop at / snap to neighbouring editable events' edges (`data-window-start`/`-end`), exact time on release |
+| `edit_magnet` | `false` | With `editable_events`: edges stop at / snap to neighbouring editable events' edges (`data-window-start`/`-end`), exact time on release; moves snap flush (within 12px, measured from the pointer, not the slot) and a drop onto a block slides to its nearer free side (`_magnetMove`) |
 | `editable_events` | `false` | Day/N-day/week: in-place move + resize (`TimeGridEdit`), editable events get `data-event-wrapper` + top/bottom `data-resize-handle`s; slots get `data-slot-end`/`data-slot-label` |
 | `scroll_to` | `nil` | `:now` / `Time` — day/N-day/week open scrolled to it (minus `scroll_lead`) via `ScrollToTime`; JS off → starts at `min_time` |
 | `scroll_lead` | `60` | Minutes of context above `scroll_to`, clamped to `min_time` |

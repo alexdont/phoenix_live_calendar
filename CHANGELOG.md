@@ -7,7 +7,10 @@
 - **`edit_magnet`** (with `editable_events`): a pulled edge stops at the
   neighbouring editable event's edge instead of crossing it, snaps to it
   within 12px, and lands on that exact time (13:47, not the slot's 13:30) —
-  for personal timelines where blocks must not overlap. Editable blocks now
+  for personal timelines where blocks must not overlap. A moved block, too,
+  sits flush against a neighbour it comes within 12px of, and one dropped
+  on top of another slides to that block's nearer free side (keeping its
+  length). Editable blocks now
   carry `data-window-start` / `data-window-end` (their window in that day
   column) so the hook compares server times instead of measuring clocks.
 
