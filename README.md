@@ -184,7 +184,7 @@ end
 | `show_now_indicator` | boolean | `true` | Current-time line in day/week/timeline views when showing today |
 | `scroll_to` | `:now`/Time/nil | `nil` | Day/N-day/week: open the time grid scrolled to this time, on mount and whenever the visible dates change. Needs the JS hooks (`ScrollToTime`); without them the grid starts at `min_time` |
 | `edit_magnet` | boolean | `false` | With `editable_events`: a pulled edge stops at (and snaps to, within 12px) the neighbouring editable event's edge, landing on that exact time; a moved block sits flush against a neighbour and is never dropped on top of one — no overlaps |
-| `editable_events` | boolean | `false` | Day/N-day/week: drag timed events to move them and pull their top/bottom edge to resize, snapping to slots; reported via `on_event_drop` / `on_event_resize`. Events with `editable: false` stay put. Needs the JS hooks (`TimeGridEdit`; pointer events, so touch too) |
+| `editable_events` | boolean | `false` | Day/N-day/week: drag timed events to move them and pull their top/bottom edge to resize, snapping to slots; reported via `on_event_drop` / `on_event_resize`. Press an empty slot and drag to draw a new block (`on_range_select`). Events with `editable: false` stay put. Needs the JS hooks (`TimeGridEdit`; pointer events, so touch too) |
 | `scroll_lead` | integer | `60` | Minutes of context kept above `scroll_to` (clamped to `min_time`) |
 
 ## Callbacks

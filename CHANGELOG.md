@@ -4,6 +4,13 @@
 
 ### Added
 
+- **Draw a new block** (with `editable_events`): press an empty slot and drag,
+  down or up, and a ghost stretches with the pointer; on release the range
+  arrives as `on_range_select` (`%{date, start_time, end_time}`), snapped to
+  slots. With `edit_magnet` it starts flush after a block that ends inside
+  its first slot, stops at the next block, and snaps to the now line. A plain
+  click still fires `on_time_select`. Mouse and pen; a finger on an empty
+  slot scrolls.
 - **`edit_magnet`** (with `editable_events`): a pulled edge stops at the
   neighbouring editable event's edge instead of crossing it, snaps to it
   within 12px, and lands on that exact time (13:47, not the slot's 13:30) —

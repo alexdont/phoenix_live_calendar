@@ -652,7 +652,25 @@
       this._onDown = (e) => {
         if (e.button !== undefined && e.button !== 0) return;
         var wrapper = e.target.closest && e.target.closest("[data-event-wrapper]");
-        if (!wrapper || !this.el.contains(wrapper)) return;
+
+        // An empty slot: maybe the start of a drag that draws a new block.
+        // Mouse and pen only: a finger on an empty slot scrolls the grid.
+        if (!wrapper) {
+          var slot = e.target.closest && e.target.closest("[data-slot]");
+          var slotColumn = slot && slot.closest("[data-date]");
+          if (!slot || !slotColumn || !this.el.contains(slot) || e.pointerType === "touch") return;
+          this._op = {
+            kind: "pending-create",
+            column: slotColumn,
+            anchor: slot,
+            startX: e.clientX,
+            startY: e.clientY,
+            target: null,
+          };
+          return;
+        }
+
+        if (!this.el.contains(wrapper)) return;
         var column = wrapper.closest("[data-date]");
         if (!column) return;
 
@@ -682,13 +700,18 @@
       this._onMove = (e) => {
         var op = this._op;
         if (!op) return;
+        if (op.kind === "pending-create") {
+          if (Math.abs(e.clientY - op.startY) <= 5) return;
+          op.kind = "create";
+        }
         if (op.kind === "pending") {
           if (Math.abs(e.clientX - op.startX) + Math.abs(e.clientY - op.startY) <= 5) return;
           op.kind = "move";
           op.wrapper.classList.add("cal-dragging");
         }
         e.preventDefault();
-        if (op.kind === "move") this._previewMove(e);
+        if (op.kind === "create") this._previewCreate(e);
+        else if (op.kind === "move") this._previewMove(e);
         else this._previewResize(e);
       };
 
@@ -696,7 +719,8 @@
         var op = this._op;
         if (!op) return;
         this._op = null;
-        if (op.kind === "pending") return; // a click: let it through
+        // A click: let it through.
+        if (op.kind === "pending" || op.kind === "pending-create") return;
 
         // The click that follows a drag must not open the event.
         var swallow = function (ev) {
@@ -709,7 +733,13 @@
         this._reset(op);
         if (!op.target) return;
 
-        if (op.kind === "move") {
+        if (op.kind === "create") {
+          this.pushEventTo(this.el, "lc_range_select", {
+            date: op.target.date,
+            start_time: op.target.start,
+            end_time: op.target.end,
+          });
+        } else if (op.kind === "move") {
           this.pushEventTo(this.el, "lc_event_drop", {
             event_id: op.id,
             new_date: op.target.date,
@@ -928,6 +958,92 @@
 
     SNAP_PX: 12,
 
+    // Drawing a new block: from the pressed slot to the pointer, down or up.
+    // The fixed end is the pressed slot's own boundary; the moving end snaps
+    // to slots. With edit_magnet the block starts flush after one that ends
+    // inside its first slot, stops at the next block either way, and snaps
+    // to the now line. Reported as `lc_range_select {date, start_time,
+    // end_time}` with the server's own times; a ghost previews it.
+    _previewCreate(e) {
+      var op = this._op;
+      var column = op.column;
+      var colRect = column.getBoundingClientRect();
+      var a = op.anchor.getBoundingClientRect();
+      var slot = this._slotAt(column, e.clientY);
+      if (!slot) return;
+      var r = slot.getBoundingClientRect();
+      var down = e.clientY >= a.top;
+      var magnet = this.el.getAttribute("data-edit-magnet") === "true";
+
+      var top, bottom, start, end;
+      if (down) {
+        top = a.top;
+        start = op.anchor.getAttribute("data-slot");
+        bottom = Math.max(r.bottom, a.bottom);
+        end = (r.bottom >= a.bottom ? slot : op.anchor).getAttribute("data-slot-end");
+      } else {
+        bottom = a.bottom;
+        end = op.anchor.getAttribute("data-slot-end");
+        top = r.top;
+        start = slot.getAttribute("data-slot");
+      }
+
+      if (magnet) {
+        var blocks = [];
+        column.querySelectorAll("[data-event-wrapper]").forEach(function (w) {
+          var b = w.getBoundingClientRect();
+          blocks.push({ s: w.getAttribute("data-window-start"), e: w.getAttribute("data-window-end"), top: b.top, bottom: b.bottom });
+        });
+        var now = this._nowLine(column);
+
+        if (down) {
+          // Start flush after a block covering the first slot's start.
+          blocks.forEach(function (b) {
+            if (b.s <= start && b.e > start) { start = b.e; top = b.bottom; }
+          });
+          // Stop at the first block starting after that.
+          blocks.forEach(function (b) {
+            if (b.s >= start && b.top < bottom) { bottom = b.top; end = b.s; }
+          });
+          if (now && now.y > top && Math.abs(e.clientY - now.y) < this.SNAP_PX && now.y <= bottom) {
+            bottom = now.y; end = now.time;
+          }
+        } else {
+          // End flush before a block covering the first slot's end.
+          blocks.forEach(function (b) {
+            if (b.s < end && b.e >= end) { end = b.s; bottom = b.top; }
+          });
+          blocks.forEach(function (b) {
+            if (b.e <= end && b.bottom > top) { top = b.bottom; start = b.e; }
+          });
+          if (now && now.y < bottom && Math.abs(e.clientY - now.y) < this.SNAP_PX && now.y >= top) {
+            top = now.y; start = now.time;
+          }
+        }
+      }
+
+      if (!op.ghost) {
+        op.ghost = document.createElement("div");
+        op.ghost.className = "cal-create-ghost";
+        op.ghost.setAttribute("aria-hidden", "true");
+        op.ghost.style.cssText =
+          "position:absolute;inset-inline:2px;z-index:15;pointer-events:none;overflow:hidden;" +
+          "border:1.5px dashed currentColor;border-radius:4px;font-size:11px;line-height:1.3;padding:1px 5px;white-space:nowrap;";
+        (column.querySelector(".cal-event-layer") || column).appendChild(op.ghost);
+      }
+
+      if (bottom - top < 2 || !(start < end)) {
+        op.ghost.style.display = "none";
+        op.target = null;
+        return;
+      }
+      op.ghost.style.display = "";
+      op.ghost.style.top = top - colRect.top + "px";
+      op.ghost.style.height = bottom - top + "px";
+      op.ghost.textContent = start.slice(0, 5) + "–" + end.slice(0, 5);
+      op.target = { date: column.getAttribute("data-date"), start: start, end: end };
+    },
+
     // With edit_magnet, the now line of this column (only today's has one):
     // its viewport y and the server's own time for it (data-now).
     _nowLine(column) {
@@ -964,6 +1080,8 @@
     // Put the block back as the server drew it; its re-render (after the
     // push) moves it for real, or leaves it if the host refused.
     _reset(op) {
+      if (op.ghost) op.ghost.remove();
+      if (!op.wrapper) return;
       op.wrapper.classList.remove("cal-dragging", "cal-resizing");
       if (op.home && op.wrapper.parentElement !== op.home) op.home.appendChild(op.wrapper);
       op.wrapper.style.top = op.original.top;
