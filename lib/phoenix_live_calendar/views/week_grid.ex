@@ -310,6 +310,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
         <TimeGutter.time_gutter
           slots={@slots}
           slot_height={@slot_height}
+          slot_duration={@slot_duration}
           time_format={@time_format}
         >
           <:time_label :let={time} :if={@time_label != []}>
@@ -355,7 +356,8 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
             <div
               :for={slot <- @slots}
               class={[
-                "cal-time-slot border-b border-base-200",
+                "cal-time-slot",
+                TimeGutter.slot_line_class(slot, @slot_duration),
                 slot_business_class(date, slot, @business_hours)
               ]}
               style={"height: #{Safe.sanitize_css_dimension(@slot_height)}"}

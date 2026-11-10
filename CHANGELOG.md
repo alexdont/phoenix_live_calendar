@@ -4,6 +4,14 @@
 
 ### Added
 
+- **Hour lines.** The line closing an hour is now clearly stronger than the
+  half-hour one (faint, dashed), in the time grids and the resource view,
+  and the gutter's hour labels outweigh the half-hour ones — 13:00 and 13:30
+  no longer read alike. `TimeGutter.slot_line_class/2` decides (it follows
+  `slot_duration`: hour-long slots are all hour lines, 15-minute ones every
+  fourth). The slot borders move from `border-base-200`, invisible in
+  phoenix-dark, to `border-base-content/N` tokens per the CSS rules above.
+
 - **`editable_events`: move and resize timed events in place** in the day,
   N-day and week views. Drag a block to another slot or day; pull its top or
   bottom edge (each rendered once, on the piece of a midnight-crossing event

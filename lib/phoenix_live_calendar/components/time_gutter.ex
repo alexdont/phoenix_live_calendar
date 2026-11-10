@@ -24,6 +24,7 @@ defmodule PhoenixLiveCalendar.Components.TimeGutter do
   """
   attr :slots, :list, required: true
   attr :slot_height, :string, default: "3rem"
+  attr :slot_duration, :integer, default: 30, doc: "Minutes per slot (for the hour lines)"
   attr :time_format, :atom, default: :h24
   attr :secondary_timezone, :any, default: nil
   attr :class, :string, default: ""
@@ -39,13 +40,22 @@ defmodule PhoenixLiveCalendar.Components.TimeGutter do
     >
       <div
         :for={time <- @slots}
-        class="cal-time-slot border-b border-base-200 flex flex-col justify-start px-1 pt-0.5"
+        class={[
+          "cal-time-slot flex flex-col justify-start px-1 pt-0.5",
+          slot_line_class(time, @slot_duration)
+        ]}
         style={"height: #{Safe.sanitize_css_dimension(@slot_height)}"}
       >
         <%= if @time_label != [] do %>
           {render_slot(@time_label, time)}
         <% else %>
-          <span class="cal-time-primary">
+          <span class={[
+            "cal-time-primary",
+            if(time.minute == 0,
+              do: "cal-time-hour font-medium text-base-content/70",
+              else: "cal-time-half text-[10px] text-base-content/40"
+            )
+          ]}>
             {I18n.format_time(time, format: @time_format)}
           </span>
           <span :if={@secondary_timezone} class="cal-time-secondary text-base-content/40">
@@ -55,6 +65,21 @@ defmodule PhoenixLiveCalendar.Components.TimeGutter do
       </div>
     </div>
     """
+  end
+
+  @doc """
+  The line under a time slot: a clear hour line when the slot ends on the
+  hour, a faint dashed one between, so 13:00 and 13:30 don't read alike.
+  `border-base-content/N` tokens, which stay visible in dark themes
+  (`border-base-200` vanishes in phoenix-dark). Complete static strings.
+  """
+  @spec slot_line_class(Time.t(), pos_integer()) :: String.t()
+  def slot_line_class(%Time{} = slot, duration) do
+    ends = Time.add(slot, max(duration || 30, 1) * 60)
+
+    if ends.minute == 0 and ends.second == 0,
+      do: "cal-hour-line border-b border-base-content/15",
+      else: "cal-half-line border-b border-dashed border-base-content/[0.07]"
   end
 
   @doc """

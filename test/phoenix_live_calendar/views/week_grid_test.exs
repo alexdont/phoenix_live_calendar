@@ -763,4 +763,35 @@ defmodule PhoenixLiveCalendar.Views.WeekGridTest do
       assert html =~ ~s(data-slot="23:30:00" data-slot-end="23:59:59")
     end
   end
+
+  describe "hour lines" do
+    test "the line ending an hour is clear, the half hour's faint and dashed" do
+      assert PhoenixLiveCalendar.Components.TimeGutter.slot_line_class(~T[13:30:00], 30) =~
+               "cal-hour-line border-b border-base-content/15"
+
+      assert PhoenixLiveCalendar.Components.TimeGutter.slot_line_class(~T[13:00:00], 30) =~
+               "cal-half-line border-b border-dashed"
+
+      # Hour-long slots: every line is an hour line; 15-minute ones every fourth.
+      assert PhoenixLiveCalendar.Components.TimeGutter.slot_line_class(~T[13:00:00], 60) =~
+               "cal-hour-line"
+
+      assert PhoenixLiveCalendar.Components.TimeGutter.slot_line_class(~T[13:30:00], 15) =~
+               "cal-half-line"
+
+      assert PhoenixLiveCalendar.Components.TimeGutter.slot_line_class(~T[13:45:00], 15) =~
+               "cal-hour-line"
+    end
+
+    test "the grid and its time labels use them; no invisible base-200 slot borders" do
+      assigns = %{dates: [~D[2026-04-01]]}
+      html = render(~H"<.week_grid dates={@dates} />")
+
+      assert html =~ "cal-hour-line"
+      assert html =~ "cal-half-line"
+      assert html =~ "cal-time-hour font-medium"
+      assert html =~ "cal-time-half"
+      refute html =~ "cal-time-slot border-b border-base-200"
+    end
+  end
 end

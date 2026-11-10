@@ -151,6 +151,7 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
         <TimeGutter.time_gutter
           slots={@slots}
           slot_height={@slot_height}
+          slot_duration={@slot_duration}
           time_format={@time_format}
         />
 
@@ -166,7 +167,7 @@ defmodule PhoenixLiveCalendar.Views.ResourceView do
             <%!-- Slot grid lines --%>
             <div
               :for={slot <- @slots}
-              class="cal-time-slot border-b border-base-200"
+              class={["cal-time-slot", TimeGutter.slot_line_class(slot, @slot_duration)]}
               style={"height: #{Safe.sanitize_css_dimension(@slot_height)}"}
               phx-click={@on_time_click}
               phx-value-resource-id={resource.id}
