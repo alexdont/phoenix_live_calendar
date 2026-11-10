@@ -110,6 +110,7 @@ defmodule PhoenixLiveCalendar.Components.TimeGutter do
     <div
       class={["cal-now-indicator absolute left-0 right-0 z-20 pointer-events-none", @class]}
       style={"top: #{@position}%"}
+      data-now={@current_time |> Time.truncate(:second) |> Time.to_iso8601()}
       aria-hidden="true"
     >
       <div class="flex items-center">

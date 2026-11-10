@@ -830,6 +830,19 @@
       };
 
       var best = null;
+
+      // The now line is a snap point too: start on it, or end on it.
+      var now = this._nowLine(column);
+      if (now) {
+        [
+          { s: secs(now.time), top: now.y },
+          { s: secs(now.time) - dur, top: now.y - op.height },
+        ].forEach(function (c) {
+          if (Math.abs(c.top - top) >= this.SNAP_PX || c.s < 0 || c.s + dur > 86400 || overlaps(c.s)) return;
+          if (!best || Math.abs(c.top - top) < Math.abs(best.top - top)) best = c;
+        }, this);
+      }
+
       others.forEach(function (o) {
         var hit = start < o.e && start + dur > o.s;
         [
@@ -868,10 +881,18 @@
         var next = this._magnet(op, "below");
         if (next) {
           var limit = next.getBoundingClientRect().top;
-          if (bottom > limit || Math.abs(bottom - limit) < this.SNAP_PX) {
+          if (bottom > limit || Math.abs(e.clientY - limit) < this.SNAP_PX) {
             bottom = limit;
             endTime = next.getAttribute("data-window-start");
           }
+        }
+        // ...and to the now line, within SNAP_PX (a snap, not a wall).
+        var nowLine = this._nowLine(column);
+        // (Distances from the pointer, not the slot edge it rounds to.)
+        if (nowLine && nowLine.y > rect.top && Math.abs(e.clientY - nowLine.y) < this.SNAP_PX &&
+            (!next || nowLine.y <= next.getBoundingClientRect().top)) {
+          bottom = nowLine.y;
+          endTime = nowLine.time;
         }
         op.wrapper.style.height = Math.max(bottom - rect.top, 4) + "px";
         op.target = { time: endTime };
@@ -888,10 +909,16 @@
         var prev = this._magnet(op, "above");
         if (prev) {
           var floor = prev.getBoundingClientRect().bottom;
-          if (top < floor || Math.abs(top - floor) < this.SNAP_PX) {
+          if (top < floor || Math.abs(e.clientY - floor) < this.SNAP_PX) {
             top = floor;
             startTime = prev.getAttribute("data-window-end");
           }
+        }
+        var nowTop = this._nowLine(column);
+        if (nowTop && nowTop.y < rect.bottom && Math.abs(e.clientY - nowTop.y) < this.SNAP_PX &&
+            (!prev || nowTop.y >= prev.getBoundingClientRect().bottom)) {
+          top = nowTop.y;
+          startTime = nowTop.time;
         }
         op.wrapper.style.top = top - colTop + "px";
         op.wrapper.style.height = Math.max(rect.bottom - top, 4) + "px";
@@ -900,6 +927,15 @@
     },
 
     SNAP_PX: 12,
+
+    // With edit_magnet, the now line of this column (only today's has one):
+    // its viewport y and the server's own time for it (data-now).
+    _nowLine(column) {
+      if (this.el.getAttribute("data-edit-magnet") !== "true") return null;
+      var line = column.querySelector(".cal-now-indicator[data-now]");
+      if (!line) return null;
+      return { y: line.getBoundingClientRect().top, time: line.getAttribute("data-now") };
+    },
 
     // With edit_magnet, the nearest OTHER editable block in the column that
     // a pulled edge must not cross: "below" → the first one starting at or

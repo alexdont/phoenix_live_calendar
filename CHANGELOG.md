@@ -10,7 +10,10 @@
   for personal timelines where blocks must not overlap. A moved block, too,
   sits flush against a neighbour it comes within 12px of, and one dropped
   on top of another slides to that block's nearer free side (keeping its
-  length). Editable blocks now
+  length). The now line is a magnet as well: an edge or a moved block
+  within 12px of it lands on its exact time (21:58, not the 22:00 slot); it
+  snaps, it doesn't stop (plans may run past now). The now indicator
+  carries `data-now`. Editable blocks now
   carry `data-window-start` / `data-window-end` (their window in that day
   column) so the hook compares server times instead of measuring clocks.
 

@@ -473,6 +473,8 @@ defmodule PhoenixLiveCalendar.Views.WeekGridTest do
 
       assert shown =~ "cal-now-indicator"
       refute hidden =~ "cal-now-indicator"
+      # The line carries its own time (for edit_magnet to land on it).
+      assert shown =~ ~s(data-now=")
     end
 
     test "today={:none} disables the today tint and the now line" do
