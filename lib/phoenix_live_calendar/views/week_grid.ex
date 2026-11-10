@@ -94,6 +94,11 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
     doc:
       "Move and resize timed events in place (the `TimeGridEdit` hook): drag a block to another slot or day, pull its top or bottom edge. Only events with `editable: true` (the default) take part; the result arrives as `lc_event_drop` / `lc_event_resize`. Without JS the grid renders exactly as before, minus nothing."
 
+  attr :edit_magnet, :boolean,
+    default: false,
+    doc:
+      "With `editable`: a pulled edge stops at the neighbouring editable event's edge (it can't pass it) and snaps to it when close, landing on that exact time — for timelines where blocks must not overlap. Without it, edges only snap to slots."
+
   attr :edit_target, :any,
     default: nil,
     doc: "`phx-target` for the edit hook's pushes (the CalendarComponent passes `@myself`)."
@@ -196,6 +201,7 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
       id={if(@editable, do: "#{@id || "lc"}-edit")}
       phx-hook={if(@editable, do: "TimeGridEdit")}
       phx-target={if(@editable, do: @edit_target)}
+      data-edit-magnet={if(@editable and @edit_magnet, do: "true")}
     >
       <%!-- Day headers --%>
       <div class="cal-week-header flex border-b border-base-200">
@@ -416,6 +422,10 @@ defmodule PhoenixLiveCalendar.Views.WeekGrid do
                   @editable && event.editable && "cal-editable touch-none select-none"
                 ]}
                 data-event-wrapper={if(@editable and event.editable, do: event.id)}
+                data-window-start={
+                  if(@editable and event.editable, do: Time.to_iso8601(elem(window, 0)))
+                }
+                data-window-end={if(@editable and event.editable, do: Time.to_iso8601(elem(window, 1)))}
                 style={
                   event_position_style_with_overlap(
                     event,

@@ -734,6 +734,20 @@ defmodule PhoenixLiveCalendar.Views.WeekGridTest do
       assert html =~ "cal-editable touch-none select-none"
     end
 
+    test "editable blocks carry their window times; edit_magnet marks the grid" do
+      assigns = %{dates: [~D[2026-04-01]], events: [gym()]}
+
+      html = render(~H"<.week_grid dates={@dates} events={@events} editable edit_magnet />")
+      assert html =~ ~s(data-window-start="18:00:00")
+      assert html =~ ~s(data-window-end="19:00:00")
+      assert html =~ ~s(data-edit-magnet="true")
+
+      refute render(~H"<.week_grid dates={@dates} events={@events} editable />") =~
+               "data-edit-magnet"
+
+      refute render(~H"<.week_grid dates={@dates} events={@events} />") =~ "data-window-start"
+    end
+
     test "an event with editable: false takes no part" do
       fixed = %{gym() | id: "fixed", editable: false}
       assigns = %{dates: [~D[2026-04-01]], events: [fixed]}

@@ -4,6 +4,13 @@
 
 ### Added
 
+- **`edit_magnet`** (with `editable_events`): a pulled edge stops at the
+  neighbouring editable event's edge instead of crossing it, snaps to it
+  within 12px, and lands on that exact time (13:47, not the slot's 13:30) —
+  for personal timelines where blocks must not overlap. Editable blocks now
+  carry `data-window-start` / `data-window-end` (their window in that day
+  column) so the hook compares server times instead of measuring clocks.
+
 - **Hour lines.** The line closing an hour is now clearly stronger than the
   half-hour one (faint, dashed), in the time grids and the resource view,
   and the gutter's hour labels outweigh the half-hour ones — 13:00 and 13:30

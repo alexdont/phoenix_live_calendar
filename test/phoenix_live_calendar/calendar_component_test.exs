@@ -1101,6 +1101,9 @@ defmodule PhoenixLiveCalendar.CalendarComponentTest do
 
       refute render_html(:week) =~ "TimeGridEdit"
       refute render_html(:month, %{editable_events: true}) =~ "TimeGridEdit"
+
+      assert render_html(:day, %{editable_events: true, edit_magnet: true}) =~
+               ~s(data-edit-magnet="true")
     end
 
     test "a resize to a slot end is reported with the edge" do

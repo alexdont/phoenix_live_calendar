@@ -803,18 +803,68 @@
           slot = first;
           r = slot.getBoundingClientRect();
         }
-        op.wrapper.style.height = r.bottom - rect.top + "px";
-        op.target = { time: slot.getAttribute("data-slot-end") };
+        var bottom = r.bottom;
+        var endTime = slot.getAttribute("data-slot-end");
+
+        // edit_magnet: stop at the next block's top, and snap to it nearby.
+        var next = this._magnet(op, "below");
+        if (next) {
+          var limit = next.getBoundingClientRect().top;
+          if (bottom > limit || Math.abs(bottom - limit) < this.SNAP_PX) {
+            bottom = limit;
+            endTime = next.getAttribute("data-window-start");
+          }
+        }
+        op.wrapper.style.height = Math.max(bottom - rect.top, 4) + "px";
+        op.target = { time: endTime };
       } else {
         var last = this._slotAt(column, rect.bottom - 1);
         if (last && r.top > last.getBoundingClientRect().top) {
           slot = last;
           r = slot.getBoundingClientRect();
         }
-        op.wrapper.style.top = r.top - colTop + "px";
-        op.wrapper.style.height = rect.bottom - r.top + "px";
-        op.target = { time: slot.getAttribute("data-slot") };
+        var top = r.top;
+        var startTime = slot.getAttribute("data-slot");
+
+        // edit_magnet: stop at the previous block's bottom, snap to it nearby.
+        var prev = this._magnet(op, "above");
+        if (prev) {
+          var floor = prev.getBoundingClientRect().bottom;
+          if (top < floor || Math.abs(top - floor) < this.SNAP_PX) {
+            top = floor;
+            startTime = prev.getAttribute("data-window-end");
+          }
+        }
+        op.wrapper.style.top = top - colTop + "px";
+        op.wrapper.style.height = Math.max(rect.bottom - top, 4) + "px";
+        op.target = { time: startTime };
       }
+    },
+
+    SNAP_PX: 12,
+
+    // With edit_magnet, the nearest OTHER editable block in the column that
+    // a pulled edge must not cross: "below" → the first one starting at or
+    // after this block's start; "above" → the last one ending at or before
+    // this block's end and starting before it. Times compare as
+    // "HH:MM:SS" strings (the server's own window times), so no clock maths.
+    _magnet(op, direction) {
+      if (this.el.getAttribute("data-edit-magnet") !== "true") return null;
+      var ownStart = op.wrapper.getAttribute("data-window-start");
+      var ownEnd = op.wrapper.getAttribute("data-window-end");
+      var best = null;
+      op.column.querySelectorAll("[data-event-wrapper]").forEach(function (w) {
+        if (w === op.wrapper) return;
+        var s = w.getAttribute("data-window-start");
+        var e = w.getAttribute("data-window-end");
+        if (!s || !e) return;
+        if (direction === "below") {
+          if (s >= ownStart && (!best || s < best.getAttribute("data-window-start"))) best = w;
+        } else if (s < ownStart && e <= ownEnd && (!best || e > best.getAttribute("data-window-end"))) {
+          best = w;
+        }
+      });
+      return best;
     },
 
     // Put the block back as the server drew it; its re-render (after the

@@ -416,6 +416,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
           show_now_indicator={assigns[:show_now_indicator] != false}
           scroll_to={assigns[:scroll_to]}
           editable_events={assigns[:editable_events] == true}
+          edit_magnet={assigns[:edit_magnet] == true}
           scroll_lead={assigns[:scroll_lead] || 60}
           show_all_day_row={assigns[:show_all_day_row] != false}
           business_hours={assigns[:business_hours] || []}
@@ -492,6 +493,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
   attr :show_now_indicator, :boolean, required: true
   attr :scroll_to, :any, default: nil
   attr :editable_events, :boolean, default: false
+  attr :edit_magnet, :boolean, default: false
   attr :scroll_lead, :integer, default: 60
   attr :show_all_day_row, :boolean, required: true
   attr :business_hours, :list, required: true
@@ -581,6 +583,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       scroll_to={@scroll_to}
       editable={@editable_events}
       edit_target={@myself}
+      edit_magnet={@edit_magnet}
       scroll_lead={@scroll_lead}
       now={@now}
       show_all_day_row={@show_all_day_row}
@@ -617,6 +620,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       scroll_to={@scroll_to}
       editable={@editable_events}
       edit_target={@myself}
+      edit_magnet={@edit_magnet}
       scroll_lead={@scroll_lead}
       now={@now}
       show_all_day_row={@show_all_day_row}
@@ -658,6 +662,7 @@ defmodule PhoenixLiveCalendar.CalendarComponent do
       scroll_to={@scroll_to}
       editable={@editable_events}
       edit_target={@myself}
+      edit_magnet={@edit_magnet}
       scroll_lead={@scroll_lead}
       now={@now}
       show_all_day_row={@show_all_day_row}
